@@ -1,11 +1,14 @@
 const CONFIG = {
   HEO_HOME_BANNER_ENABLE: true,
 
-  HEO_SITE_CREATE_TIME: '2021-09-21', // 建站日期，用于计算网站运行的第几天
+  HEO_SITE_CREATE_TIME: '2022-05-12', // 建站日期，用于计算网站运行的第几天
 
   // 首页顶部通知条滚动内容，如不需要可以留空 []
   HEO_NOTICE_BAR: [
-    { title: '欢迎来到我的博客'}
+    { title: '清明时节雨纷纷'},
+    { title: '路上行人梳中分'},
+    { title: '借问篮球何处有'},
+    { title: '牧童遥指蔡徐村'},
   ],
 
   // 英雄区左右侧组件颠倒位置
@@ -17,8 +20,8 @@ const CONFIG = {
   HEO_HERO_TITLE_1: '分享编程',
   HEO_HERO_TITLE_2: '与思维认知',
   HEO_HERO_TITLE_3: 'peanut.icu',
-  HEO_HERO_TITLE_4: '新版上线',
-  HEO_HERO_TITLE_5: 'NotionNext4.0 轻松定制主题',
+  HEO_HERO_TITLE_4: 'peanut.icu新版上线',
+  HEO_HERO_TITLE_5: '本站内容基于Notion内容构建。',
   HEO_HERO_TITLE_LINK: 'https://peanut.icu',
 
   // 英雄区显示三个置顶分类
