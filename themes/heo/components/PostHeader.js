@@ -18,11 +18,11 @@ export default function PostHeader({ post, siteInfo, isDarkMode }) {
   }
   // 文章头图
   const headerImage = post?.pageCover ? post.pageCover : siteInfo?.pageCover
-
+  const ANALYTICS_BUSUANZI_ENABLE = siteConfig('ANALYTICS_BUSUANZI_ENABLE')
   return (
     <div
       id='post-bg'
-      className='w-full h-[30rem] relative md:flex-shrink-0 overflow-hidden bg-cover bg-center bg-no-repeat z-10 mb-5'>
+      className='md:mb-0 -mb-5 w-full h-[30rem] relative md:flex-shrink-0 overflow-hidden bg-cover bg-center bg-no-repeat z-10'>
       <style jsx>{`
         .coverdiv:after {
           position: absolute;
@@ -38,7 +38,6 @@ export default function PostHeader({ post, siteInfo, isDarkMode }) {
       `}</style>
 
       <div
-        style={{ backdropFilter: 'blur(15px)' }}
         className={`${isDarkMode ? 'bg-[#CA8A04]' : 'bg-[#0060e0]'} absolute top-0 w-full h-full py-10 flex justify-center items-center`}>
         {/* 文章背景图 */}
         <div
@@ -46,10 +45,10 @@ export default function PostHeader({ post, siteInfo, isDarkMode }) {
           style={{
             filter: 'blur(15px)'
           }}
-          className='coverdiv lg:translate-x-96 opacity-50 lg:rotate-12'>
+          className='coverdiv lg:opacity-50 lg:translate-x-96 lg:rotate-12'>
           <LazyImage
             id='post-cover'
-            className='w-full h-full object-cover opacity-80 max-h-[50rem] min-w-[50vw] min-h-[20rem]'
+            className='w-full h-full object-cover max-h-[50rem] min-w-[50vw] min-h-[20rem]'
             src={headerImage}
           />
         </div>
@@ -59,7 +58,7 @@ export default function PostHeader({ post, siteInfo, isDarkMode }) {
           id='post-info'
           className='absolute top-48 z-10 flex flex-col space-y-4 lg:-mt-12 w-full max-w-[86rem] px-5'>
           {/* 分类+标签 */}
-          <div className='flex justify-center md:justify-start items-center'>
+          <div className='flex justify-center md:justify-start items-center gap-4'>
             {post.category && (
               <>
                 <Link
@@ -67,7 +66,7 @@ export default function PostHeader({ post, siteInfo, isDarkMode }) {
                   className='mr-4'
                   passHref
                   legacyBehavior>
-                  <div className='cursor-pointer font-sm font-bold px-3 py-1 rounded-lg bg-blue-500 hover:bg-white text-white hover:text-blue-500 duration-200 '>
+                  <div className='cursor-pointer font-sm font-bold px-3 py-1 rounded-lg  hover:bg-white text-white bg-blue-500 dark:bg-yellow-500 hover:text-blue-500 duration-200 '>
                     {post.category}
                   </div>
                 </Link>
@@ -103,8 +102,8 @@ export default function PostHeader({ post, siteInfo, isDarkMode }) {
           </div>
 
           {/* 标题底部补充信息 */}
-          <section className='flex-wrap shadow-text-md flex text-sm  justify-center md:justify-start mt-4 text-white dark:text-gray-400 font-light leading-8'>
-            <div className='flex justify-center dark:text-gray-200 text-opacity-70'>
+          <section className='flex-wrap dark:text-gray-200 text-opacity-70 shadow-text-md flex text-sm  justify-center md:justify-start mt-4 text-white font-light leading-8'>
+            <div className='flex justify-center '>
               <div className='mr-2'>
                 <WordCount />
               </div>
@@ -126,7 +125,8 @@ export default function PostHeader({ post, siteInfo, isDarkMode }) {
               </div>
             </div>
 
-            {JSON.parse(siteConfig('ANALYTICS_BUSUANZI_ENABLE')) && (
+            {/* 阅读统计 */}
+            {ANALYTICS_BUSUANZI_ENABLE && (
               <div className='busuanzi_container_page_pv font-light mr-2'>
                 <i className='fa-solid fa-fire-flame-curved'></i>{' '}
                 <span className='mr-2 busuanzi_value_page_pv' />
