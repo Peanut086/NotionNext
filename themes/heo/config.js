@@ -12,7 +12,7 @@ const CONFIG = {
   ],
 
   // 英雄区左右侧组件颠倒位置
-  HEO_HERO_REVERSE: true,
+  HEO_HERO_REVERSE: false,
   // 博客主体区左右侧组件颠倒位置
   HEO_HERO_BODY_REVERSE: false,
 
@@ -44,7 +44,14 @@ const CONFIG = {
     '🤖️ 数码科技爱好者',
     '🧱 团队小组发动机'
   ],
-  HEO_INFO_CARD_URL: 'https://github.com/Peanut086', // 个人资料底部按钮链接
+
+  // 个人资料底部按钮
+  HEO_INFO_CARD_URL1: '/about',
+  HEO_INFO_CARD_ICON1: 'fas fa-user',
+  HEO_INFO_CARD_URL2: 'https://github.com/Peanut086',
+  HEO_INFO_CARD_ICON2: 'fab fa-github',
+  HEO_INFO_CARD_URL3: 'https://github.com/Peanut086',
+  HEO_INFO_CARD_TEXT3: '了解更多',
 
   // 用户技能图标
   HEO_GROUP_ICONS: [
