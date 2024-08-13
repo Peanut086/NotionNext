@@ -132,7 +132,7 @@ const GlobalHead = props => {
       <link rel='icon' href={BLOG_FAVICON} />
 
       <script charset='UTF-8' id='LA_COLLECT' src='//sdk.51.la/js-sdk-pro.min.js'></script>
-      <script>LA.init({id:'3JLGjVzXCzIpTPGy',ck:'3JLGjVzXCzIpTPGy',autoTrack:true,hashMode:true,screenRecord:true})</script>
+      <script>{LA.init({id:'3JLGjVzXCzIpTPGy',ck:'3JLGjVzXCzIpTPGy',autoTrack:true,hashMode:true,screenRecord:true})}</script>
 
       {COMMENT_WEBMENTION_ENABLE && (
         <>
