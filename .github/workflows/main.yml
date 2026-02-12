@@ -17,6 +17,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
+          port: 27827  # ←←← 就是这行！告诉 Action 别连 22，连 27827！
           script: |
             cd /www/wwwroot/NotionNext
             git pull origin main
