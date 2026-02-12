@@ -1,0 +1,26 @@
+name: 🚀 Auto Deploy NotionNext
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔑 Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /www/wwwroot/NotionNext
+            git pull origin main
+            docker build --build-arg NEXT_DEBUG=true -t my-app .
+            docker rm -f app 2>/dev/null || true
+            docker run -d -p 3000:3000 --name app --restart unless-stopped my-app
+            echo "✅ $(date): 自动部署成功！"
