@@ -30,8 +30,26 @@ const Style = () => {
         background-attachment: fixed;
       }
 
-      .dark body {
+      html.dark body {
         background-color: var(--cyber-bg-darker);
+        background-image: 
+          linear-gradient(rgba(0, 255, 249, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 249, 0.05) 1px, transparent 1px);
+      }
+
+      html.light body {
+        background-color: #1a1a2e;
+        background-image: 
+          linear-gradient(rgba(0, 255, 249, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 249, 0.08) 1px, transparent 1px);
+      }
+
+      html.light {
+        --cyber-bg-dark: #1a1a2e;
+        --cyber-bg-darker: #16213e;
+        --cyber-bg-card: rgba(26, 26, 46, 0.95);
+        --cyber-border: rgba(0, 255, 249, 0.4);
+        --cyber-text: #f0f0f0;
       }
 
       #theme-cyberpunk {
