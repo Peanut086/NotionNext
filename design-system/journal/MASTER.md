@@ -58,6 +58,17 @@
 
 CJK 注意：Amatic/Kalam/Cabin 均无中文字形。手写感的中文用 **LXGW WenKai**（SIL 许可，可自托管），并**只加载 400/700 两档 + 子集化**；静态导出下这是本主题最大的一笔体积，必须走 `font-display: swap` 与本地子集，不允许直连全量 CDN。
 
+> 落地修正（实现时确认）：霞鹜文楷官方比例版**没有 700 档**，最重是 Medium(500)，所以只自托管 **一份 Medium 子集**，在 `@font-face` 里同时映射 400 与 700 两个权重（同一 URL，浏览器只下载一次）。产物 `public/fonts/LXGWWenKai-Medium.subset.woff2`（1.59 MB / 7289 字 = GB2312 一二级 + 拉丁 + 中文标点 + 本站文案），许可随件 `public/fonts/OFL-LXGWWenKai.txt`。族名用 **`'LXGW WenKai Sub'`** 而非 `'LXGW WenKai'`，避免和站点 `FONT_URL` 里那份 CDN 版抢同权重；子集外的字直接回落系统 KaiTi/serif，不引 CDN。重生成：
+>
+> ```bash
+> pyftsubset LXGWWenKai-Medium.ttf --unicodes-file=unicodes.txt \
+>   --output-file=public/fonts/LXGWWenKai-Medium.subset.woff2 --flavor=woff2 \
+>   --layout-features=kern --no-hinting --desubroutinize --drop-tables+=DSIG \
+>   --name-IDs=0,2,3,4,6,13,14 --name-languages=0x409
+> ```
+>
+> `unicodes.txt` = ASCII + Latin-1 + U+3000-303F + U+FF01-FF60 + U+2010-203B + GB2312 区 0xB0-0xF7（用 Python 逐码点解码生成）+ 从渲染页抓出的本站汉字。
+
 ---
 
 ## 手工效果的实现配方
@@ -212,7 +223,7 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 - 新建 `themes/journal/`，沿用 `THEME_CONFIG` + `?theme=journal` 动态导入
 - 上述 token 以 CSS 变量注入主题作用域，**不直接改 `styles/notion.css`**；Notion 块只做颜色/间距覆盖，禁止给 `.notion-*` 加 transform（会与旋转冲突）
 - 代码块沿用 `styles/prism-theme.css` 结构，另出 `journal` 配色
-- 字体子集化产物放 `public/fonts/`，在 `_document` 里以 `preload` 引入
+- 字体子集化产物放 `public/fonts/`；`preload` 放在本主题 `LayoutBase` 的 `<Head>` 而不是 `_document`（`_document` 全站共享，会让其它主题白下载 1.6 MB）
 - 主题下隐藏 `Fireworks` / `FlutteringRibbon` / `CursorDot` 等炫技组件（与本主题的"手工纸"语言冲突）
 
 ---
