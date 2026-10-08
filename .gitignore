@@ -52,3 +52,7 @@ package-lock.json
 # yarn.lock
 
 .notion-api-lock
+
+# design mockups (local reference only, ~50MB of PNGs)
+/vibe_images
+/.codex-preview
