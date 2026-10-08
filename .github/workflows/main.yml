@@ -19,8 +19,19 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: 27827  # ←←← 就是这行！告诉 Action 别连 22，连 27827！
           script: |
+            set -euo pipefail
             cd /www/wwwroot/NotionNext
-            git pull origin main
+
+            echo "📍 部署前 HEAD: $(git rev-parse --short HEAD)"
+            # 仅打印工作区状态便于事后排查
+            git status --porcelain
+
+            git fetch origin main
+            # 只允许快进：分叉或本地改动会直接让部署变红，
+            # 而不是静默用旧源码构建出"部署成功"的旧镜像
+            git merge --ff-only FETCH_HEAD
+            echo "📍 部署后 HEAD: $(git rev-parse --short HEAD)"
+
             docker build --build-arg NEXT_DEBUG=true -t my-app .
             docker rm -f app 2>/dev/null || true
             docker run -d -p 3000:3000 --name app --restart unless-stopped my-app
