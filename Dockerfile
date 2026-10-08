@@ -15,6 +15,9 @@ RUN yarn install --frozen-lockfile --network-timeout 600000
 FROM base AS builder
 ARG NOTION_PAGE_ID
 ENV NEXT_BUILD_STANDALONE=true
+# 构建机内存只有 1.9G 时，V8 会按物理内存把堆上限定到 ~968M，
+# next build 编译阶段必然 OOM；swap 不改变这个上限，只能显式抬高
+ENV NODE_OPTIONS=--max-old-space-size=2048
 
 WORKDIR /app
 
