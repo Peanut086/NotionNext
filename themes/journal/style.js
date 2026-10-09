@@ -1222,6 +1222,9 @@ export const Style = () => {
         /* 上限 560 不许贴满整页宽，但更不能越过纸的右边界：
            写死 560 会顶掉上游的 max-width:100%，窄栏时照片两头被剪掉 */
         max-width: min(560px, 100%);
+        /* 上游 .notion-asset-wrapper 带 min-width:100%，而 min-width 赢过 max-width，
+           不接管它则 560 上限永不生效：小照片泡在 692 的白卡纸里 */
+        min-width: 0;
       }
       #theme-journal .notion-asset-caption {
         font-family: var(--font-hand);
