@@ -26,11 +26,30 @@ jobs:
             # 仅打印工作区状态便于事后排查
             git status --porcelain
 
-            git fetch origin main
+            # origin 走的是 githubfast.com 中转，它会间歇性抖动。
+            # 一次 fetch 失败 = set -e 直接退出，42 秒变红且 HEAD 原地不动，
+            # 于是线上跑的是上一个镜像而 git 已经前进 —— 看起来"部署失败"但其实没构建
+            fetch_ok=0
+            for i in 1 2 3; do
+              if git fetch origin main; then
+                fetch_ok=1
+                break
+              fi
+              echo "⚠️ 第 $i 次 fetch 失败，15 秒后重试"
+              sleep 15
+            done
+            [ "$fetch_ok" = 1 ] || { echo "❌ git fetch 连续 3 次失败，中止"; exit 1; }
+
             # 只允许快进：分叉或本地改动会直接让部署变红，
             # 而不是静默用旧源码构建出"部署成功"的旧镜像
             git merge --ff-only FETCH_HEAD
             echo "📍 部署后 HEAD: $(git rev-parse --short HEAD)"
+
+            # 二次确认：构建前源码必须真的是本次触发的那次提交
+            if [ "$(git rev-parse HEAD)" != "${{ github.sha }}" ]; then
+              echo "❌ HEAD 与触发 commit ${{ github.sha }} 不一致，中止构建"
+              exit 1
+            fi
 
             docker build --build-arg NEXT_DEBUG=true -t my-app .
             docker rm -f app 2>/dev/null || true
