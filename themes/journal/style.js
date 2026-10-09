@@ -45,12 +45,12 @@ export const Style = () => {
 
         --font-marker: 'Amatic SC', 'Kalam', var(--font-cjk-hand), cursive;
         --font-hand: 'Kalam', var(--font-cjk-hand), 'Noto Serif SC', serif;
-        --font-print: 'Cabin', 'Noto Sans SC', 'PingFang SC',
-          'Microsoft YaHei', sans-serif;
-        --font-stamp: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas,
-          monospace;
-        --font-cjk-hand: 'LXGW WenKai Sub', 'Kaiti SC', 'STKaiti', 'KaiTi',
-          serif;
+        --font-print:
+          'Cabin', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        --font-stamp:
+          'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+        --font-cjk-hand:
+          'LXGW WenKai Sub', 'Kaiti SC', 'STKaiti', 'KaiTi', serif;
 
         --wobble: 255px 15px 225px 15px / 15px 225px 15px 255px;
         --wobble-alt: 15px 225px 15px 255px / 255px 15px 225px 15px;
@@ -62,9 +62,11 @@ export const Style = () => {
         color: var(--ink);
         background-color: var(--paper);
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.18 0 0 0 0 0.16 0 0 0 0 0.12 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-        font-family: ${enableFont === 'font-sans'
-          ? 'var(--font-print)'
-          : enableFont + ', var(--font-print)'};
+        font-family: ${
+          enableFont === 'font-sans'
+            ? 'var(--font-print)'
+            : enableFont + ', var(--font-print)'
+        };
         font-size: 17px;
         line-height: 1.9;
         min-height: 100vh;
@@ -157,7 +159,9 @@ export const Style = () => {
         border-radius: var(--wobble);
         box-shadow: var(--shadow);
         transform: rotate(var(--r, 0deg));
-        transition: transform 140ms ease, box-shadow 140ms ease;
+        transition:
+          transform 140ms ease,
+          box-shadow 140ms ease;
       }
       #theme-journal .j-slip:hover {
         transform: rotate(var(--r, 0deg)) translate(-1px, -1px);
@@ -333,7 +337,9 @@ export const Style = () => {
         padding: 10px 10px 34px;
         box-shadow: var(--shadow);
         transform: rotate(var(--r, -1.5deg));
-        transition: transform 140ms ease, box-shadow 140ms ease;
+        transition:
+          transform 140ms ease,
+          box-shadow 140ms ease;
       }
       #theme-journal .j-polaroid:hover {
         transform: rotate(var(--r, -1.5deg)) translate(-1px, -1px);
@@ -444,7 +450,9 @@ export const Style = () => {
         box-shadow: var(--shadow);
         font-family: var(--font-hand);
         font-size: 18px;
-        transition: transform 140ms ease, box-shadow 140ms ease;
+        transition:
+          transform 140ms ease,
+          box-shadow 140ms ease;
       }
       #theme-journal .j-btn:hover {
         transform: translate(-1px, -1px);
@@ -680,7 +688,8 @@ export const Style = () => {
         box-shadow: var(--shadow);
         overflow: hidden;
         background-color: var(--slip);
-        background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+        background-image:
+          linear-gradient(var(--grid) 1px, transparent 1px),
           linear-gradient(90deg, var(--grid) 1px, transparent 1px);
         background-size: 22px 22px;
       }

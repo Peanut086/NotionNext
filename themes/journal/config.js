@@ -1,7 +1,8 @@
 const CONFIG = {
   // 站名用 Marker 层手写体，副标题用 Stamp 层等宽
   JOURNAL_TITLE: process.env.NEXT_PUBLIC_JOURNAL_TITLE || '纸间手账',
-  JOURNAL_SUBTITLE: process.env.NEXT_PUBLIC_JOURNAL_SUBTITLE || 'A HAND-MADE BLOG',
+  JOURNAL_SUBTITLE:
+    process.env.NEXT_PUBLIC_JOURNAL_SUBTITLE || 'A HAND-MADE BLOG',
 
   // 首页「最近在写」蓝色圆珠笔便条
   JOURNAL_RECENT_NOTE:

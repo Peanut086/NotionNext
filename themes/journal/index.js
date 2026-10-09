@@ -34,9 +34,7 @@ const RecommendPosts = dynamic(
 
 const postDate = post =>
   post?.date?.start_date ||
-  (post?.publishDate
-    ? formatDateFmt(post.publishDate, 'yyyy-MM-dd')
-    : '') ||
+  (post?.publishDate ? formatDateFmt(post.publishDate, 'yyyy-MM-dd') : '') ||
   post?.createdTime ||
   ''
 
@@ -85,7 +83,8 @@ const HandRule = ({ red = false, className = '' }) => (
     className={`j-rule ${red ? 'j-rule-red' : ''} ${className}`}
     viewBox='0 0 240 14'
     preserveAspectRatio='none'
-    aria-hidden='true'>
+    aria-hidden='true'
+  >
     <path d='M4 9C58 3.6 116 11 168 6.2s44 1.6 68-2.4' />
   </svg>
 )
@@ -106,7 +105,8 @@ const Star = ({ className = '' }) => (
     viewBox='0 0 24 24'
     width='17'
     height='17'
-    aria-hidden='true'>
+    aria-hidden='true'
+  >
     <path
       d='M12 3.2l2.3 5.2 5.6.5-4.2 3.7 1.2 5.5L12 15.3 7.1 18l1.2-5.5L4.1 8.9l5.6-.5z'
       fill='var(--red)'
@@ -243,7 +243,8 @@ function PostSlip({ post, featured = false, compact = false }) {
         {post?.category && (
           <SmartLink
             href={`/category/${encodeURIComponent(post.category)}`}
-            className='j-pill'>
+            className='j-pill'
+          >
             {post.category}
           </SmartLink>
         )}
@@ -251,7 +252,8 @@ function PostSlip({ post, featured = false, compact = false }) {
           <SmartLink
             key={tag}
             href={`/tag/${encodeURIComponent(tag)}`}
-            className='j-pill j-pill-yellow'>
+            className='j-pill j-pill-yellow'
+          >
             {tag}
           </SmartLink>
         ))}
@@ -311,12 +313,14 @@ function TopBar(props) {
     }
   ].filter(i => i.show)
 
-  const extra = (siteConfig('CUSTOM_MENU') ? props.customMenu : props.customNav) || []
+  const extra =
+    (siteConfig('CUSTOM_MENU') ? props.customMenu : props.customNav) || []
   // 自定义导航常与内置项重复（首页 / 搜索），按路径去重
   const navItems = [...items, ...extra].filter(
     (link, index, list) =>
-      list.findIndex(l => (l.href || '/').split('?')[0] === (link.href || '/').split('?')[0]) ===
-      index
+      list.findIndex(
+        l => (l.href || '/').split('?')[0] === (link.href || '/').split('?')[0]
+      ) === index
   )
 
   return (
@@ -333,7 +337,8 @@ function TopBar(props) {
 
         <nav
           aria-label={locale?.NAV?.NAVIGATOR || '导航'}
-          className='j-tilt-group -mb-[14px] flex flex-wrap items-center gap-1.5'>
+          className='j-tilt-group -mb-[14px] flex flex-wrap items-center gap-1.5'
+        >
           {navItems.map(link => {
             const path = (link.href || '/').split('?')[0]
             const active = router.asPath.split('?')[0] === path
@@ -344,7 +349,8 @@ function TopBar(props) {
                 className={`j-slip j-slip-alt j-hand px-3 py-1.5 text-[17px] md:px-4 ${
                   active ? 'j-circle' : ''
                 }`}
-                {...(active ? { 'aria-current': 'page' } : {})}>
+                {...(active ? { 'aria-current': 'page' } : {})}
+              >
                 {active ? (
                   <RedCircle label={link.name} />
                 ) : (
@@ -374,8 +380,8 @@ function Footer() {
             {j('JOURNAL_FOOTER_NOTE', '这一页还没画完')}
           </span>
           <div className='j-stamp j-soft mt-1'>
-            © {sinceYear === thisYear ? thisYear : `${sinceYear} – ${thisYear}`} ·
-            第 {years} 年 · {j('JOURNAL_TITLE', '纸间手账')}
+            © {sinceYear === thisYear ? thisYear : `${sinceYear} – ${thisYear}`}{' '}
+            · 第 {years} 年 · {j('JOURNAL_TITLE', '纸间手账')}
           </div>
         </div>
         <PaperPlane />
@@ -428,7 +434,8 @@ function LayoutBase(props) {
       className={`${night ? 'j-night' : ''} ${siteConfig(
         'FONT_STYLE',
         ''
-      )} min-h-screen`}>
+      )} min-h-screen`}
+    >
       <Head>
         {/* 子集 woff2 只在本主题渲染时预载，避免其它主题白下载 1.6MB */}
         <link
@@ -549,7 +556,8 @@ function TagCloudStickers({ tagOptions = [], limit = 30, selected }) {
             className={`j-slip j-hand px-3 py-1.5 ${
               active ? 'j-circle' : ''
             } ${tag.count > max * 0.7 ? 'j-pill-yellow' : ''}`}
-            style={{ fontSize: `${size}px` }}>
+            style={{ fontSize: `${size}px` }}
+          >
             {active ? <RedCircle label={tag.name} /> : tag.name}
             {tag.count && (
               <span className='j-stamp j-soft ml-1.5 text-[12px]'>
@@ -572,8 +580,7 @@ function TapePagination({ page, totalPage }) {
     .split('?')[0]
     .replace(/\/page\/[1-9]\d*/, '')
     .replace(/\/$/, '')
-  const hrefOf = n =>
-    n <= 1 ? `${prefix}/` : `${prefix}/page/${n}`
+  const hrefOf = n => (n <= 1 ? `${prefix}/` : `${prefix}/page/${n}`)
 
   if (total <= 1) return null
 
@@ -585,7 +592,8 @@ function TapePagination({ page, totalPage }) {
   return (
     <nav
       className='j-tilt-group mt-10 flex flex-wrap items-center gap-3'
-      aria-label='分页'>
+      aria-label='分页'
+    >
       <span className='j-hand j-soft text-[16px]'>
         第 {current} / {total} 页
       </span>
@@ -598,7 +606,8 @@ function TapePagination({ page, totalPage }) {
             className={`j-slip j-slip-alt j-stamp grid h-11 w-11 place-items-center ${
               active ? 'j-circle' : ''
             }`}
-            {...(active ? { 'aria-current': 'page' } : {})}>
+            {...(active ? { 'aria-current': 'page' } : {})}
+          >
             {active ? <RedCircle label={n} /> : n}
           </SmartLink>
         )
@@ -614,7 +623,8 @@ function ListHeader({ title, meta, back = true }) {
       {back && (
         <SmartLink
           href='/'
-          className='j-hand j-soft inline-flex items-center gap-2 text-[17px]'>
+          className='j-hand j-soft inline-flex items-center gap-2 text-[17px]'
+        >
           <span className='inline-block rotate-180'>
             <ArrowRight />
           </span>
@@ -675,7 +685,8 @@ function LayoutPostList(props) {
               href={`/tag/${encodeURIComponent(t.name)}`}
               className={`j-slip j-slip-alt j-hand px-3 py-1 text-[16px] ${
                 t.name === currentTag ? 'j-circle' : ''
-              }`}>
+              }`}
+            >
               {t.name}
             </SmartLink>
           ))}
@@ -736,7 +747,8 @@ function LayoutSearch(props) {
       <div className='j-shell pt-10'>
         <form
           onSubmit={onSubmit}
-          className='j-slip j-tape-single flex items-center gap-3 px-4 py-3'>
+          className='j-slip j-tape-single flex items-center gap-3 px-4 py-3'
+        >
           <Magnifier />
           <input
             className='j-field'
@@ -812,7 +824,9 @@ function ArticleToc({ post }) {
 
   return (
     <aside className='sticky top-8 hidden max-h-[calc(100vh-4rem)] overflow-y-auto pr-2 lg:block lg:pt-12'>
-      <div className='j-stamp j-red'>{j('JOURNAL_TOC_TITLE', '这一页的目录')}</div>
+      <div className='j-stamp j-red'>
+        {j('JOURNAL_TOC_TITLE', '这一页的目录')}
+      </div>
       <nav className='j-tilt-group mt-3 space-y-1.5'>
         {post.toc.map(item => {
           const id = uuidToId(item.id)
@@ -825,7 +839,8 @@ function ArticleToc({ post }) {
                 current ? 'j-highlight j-blue' : 'j-soft'
               }`}
               style={{ marginLeft: (item.indentLevel || 0) * 12 }}
-              aria-current={current ? 'location' : undefined}>
+              aria-current={current ? 'location' : undefined}
+            >
               {item.text}
             </a>
           )
@@ -842,7 +857,8 @@ function ArticleAround({ prev, next }) {
       {prev && (
         <SmartLink
           href={postHref(prev)}
-          className='j-slip j-hand flex items-center gap-3 px-4 py-4 text-[18px]'>
+          className='j-slip j-hand flex items-center gap-3 px-4 py-4 text-[18px]'
+        >
           <span className='inline-block rotate-180'>
             <ArrowRight />
           </span>
@@ -852,7 +868,8 @@ function ArticleAround({ prev, next }) {
       {next && (
         <SmartLink
           href={postHref(next)}
-          className='j-slip j-slip-alt j-hand flex items-center justify-end gap-3 px-4 py-4 text-right text-[18px]'>
+          className='j-slip j-slip-alt j-hand flex items-center justify-end gap-3 px-4 py-4 text-right text-[18px]'
+        >
           {next.title}
           <ArrowRight />
         </SmartLink>
@@ -895,7 +912,9 @@ function ShareNote({ post }) {
   const encoded = encodeURIComponent(
     liveUrl || `${siteConfig('LINK')}${router.asPath}`
   )
-  const text = encodeURIComponent(`${post?.title || ''} | ${siteConfig('TITLE')}`)
+  const text = encodeURIComponent(
+    `${post?.title || ''} | ${siteConfig('TITLE')}`
+  )
 
   const hrefOf = service => {
     switch (service) {
@@ -938,7 +957,8 @@ ${decoded}`)
               key={service}
               type='button'
               className='j-textlink py-2'
-              onClick={copyUrl}>
+              onClick={copyUrl}
+            >
               {SHARE_TEXT_LABELS[service]}
             </button>
           ) : (
@@ -947,7 +967,8 @@ ${decoded}`)
               href={hrefOf(service)}
               target='_blank'
               rel='noopener noreferrer'
-              className='py-2'>
+              className='py-2'
+            >
               {SHARE_TEXT_LABELS[service]}
             </a>
           )
@@ -986,7 +1007,8 @@ function LayoutSlug(props) {
             {post?.category && (
               <SmartLink
                 href={`/category/${encodeURIComponent(post.category)}`}
-                className='j-pill j-pill-yellow'>
+                className='j-pill j-pill-yellow'
+              >
                 {post.category}
               </SmartLink>
             )}
@@ -994,7 +1016,8 @@ function LayoutSlug(props) {
               <SmartLink
                 key={tag}
                 href={`/tag/${encodeURIComponent(tag)}`}
-                className='j-pill'>
+                className='j-pill'
+              >
                 {tag}
               </SmartLink>
             ))}
@@ -1071,13 +1094,19 @@ function LayoutArchive(props) {
         <div className='max-w-[20ch]'>
           <HandRule />
         </div>
-        <p className='j-print j-soft mt-2'>{j('JOURNAL_ARCHIVE_SUBTITLE', '')}</p>
+        <p className='j-print j-soft mt-2'>
+          {j('JOURNAL_ARCHIVE_SUBTITLE', '')}
+        </p>
         <div className='j-stamp j-soft mt-1'>共 {posts.length} 张纸</div>
 
         <div className='relative mt-9 pl-6'>
           <div className='absolute left-1 top-2 h-[calc(100%-1rem)] w-[2px] rotate-[0.4deg] bg-[var(--ink)] opacity-70' />
           {byYear.map(([year, items]) => (
-            <section key={year} id={`archive-${year}`} className='relative mb-10 scroll-mt-24'>
+            <section
+              key={year}
+              id={`archive-${year}`}
+              className='relative mb-10 scroll-mt-24'
+            >
               <span className='j-stamp-date j-stamp text-[15px]'>{year}</span>
 
               <ul className='j-tilt-group mt-4 space-y-5'>
@@ -1099,7 +1128,8 @@ function LayoutArchive(props) {
                       {post?.tags?.[0] && (
                         <SmartLink
                           href={`/tag/${encodeURIComponent(post.tags[0])}`}
-                          className='j-pill j-pill-yellow relative z-[2]'>
+                          className='j-pill j-pill-yellow relative z-[2]'
+                        >
                           {post.tags[0]}
                         </SmartLink>
                       )}
@@ -1148,7 +1178,9 @@ function LayoutCategoryIndex(props) {
       <div className='max-w-[20ch]'>
         <HandRule />
       </div>
-      <p className='j-print j-soft mt-2'>{j('JOURNAL_CATEGORY_SUBTITLE', '')}</p>
+      <p className='j-print j-soft mt-2'>
+        {j('JOURNAL_CATEGORY_SUBTITLE', '')}
+      </p>
 
       <div className='j-tilt-group mt-9 grid gap-8 md:grid-cols-2 lg:grid-cols-3'>
         {options.map((c, i) => (
@@ -1157,7 +1189,8 @@ function LayoutCategoryIndex(props) {
             href={`/category/${encodeURIComponent(c.name)}`}
             className={`j-slip j-tape-single block p-5 ${
               i === featured ? 'md:col-span-2' : ''
-            }`}>
+            }`}
+          >
             <h2 className='j-hand flex items-center gap-2 text-[24px]'>
               {i === featured && <Star />}
               {c.name}
@@ -1210,10 +1243,7 @@ function LayoutTagIndex(props) {
             ))}
           </div>
         </StickyNote>
-        <PostSlip
-          post={(props.posts || [])[0]}
-          compact
-        />
+        <PostSlip post={(props.posts || [])[0]} compact />
       </div>
     </main>
   )
@@ -1300,20 +1330,17 @@ function LayoutPlog(props) {
         <div className='max-w-[24ch]'>
           <HandRule />
         </div>
-        <p className='j-print j-soft mt-2'>
-          {j('JOURNAL_PLOG_SUBTITLE', '')}
-        </p>
+        <p className='j-print j-soft mt-2'>{j('JOURNAL_PLOG_SUBTITLE', '')}</p>
         <div className='j-stamp j-soft mt-1'>
           {photos.length} 张 · {monthLabel(byMonth[0]?.[0])}
         </div>
 
         {photos.length === 0 ? (
           <div className='j-slip j-tape-single mt-9 px-6 py-10 text-center'>
-            <p className='j-hand j-blue text-[22px]'>
-              这一页还没贴照片。
-            </p>
+            <p className='j-hand j-blue text-[22px]'>这一页还没贴照片。</p>
             <p className='j-print j-soft mt-2 text-[15px]'>
-              在 Notion 里给想进照片墙的文章加上「{tag}」标签，并给它配一张封面图。
+              在 Notion 里给想进照片墙的文章加上「{tag}
+              」标签，并给它配一张封面图。
             </p>
           </div>
         ) : (
@@ -1321,7 +1348,8 @@ function LayoutPlog(props) {
             <section
               key={key}
               id={`plog-${key}`}
-              className='mt-10 scroll-mt-24'>
+              className='mt-10 scroll-mt-24'
+            >
               <h2 className='j-hand j-blue text-[22px]'>
                 {monthLabel(key)} · {items.length} 张
               </h2>
@@ -1338,21 +1366,21 @@ function LayoutPlog(props) {
           ))
         )}
 
-        {byMonth.length > 1 && (
-          <hr className='j-dashed-rule mt-12' />
-        )}
+        {byMonth.length > 1 && <hr className='j-dashed-rule mt-12' />}
         {byMonth.length > 1 && (
           <>
             <nav
               aria-label='月份'
-              className='j-tilt-group mt-6 flex flex-wrap items-center gap-3'>
+              className='j-tilt-group mt-6 flex flex-wrap items-center gap-3'
+            >
               {byMonth.map(([key, items], index) => (
                 <a
                   key={key}
                   href={`#plog-${key}`}
                   className={`j-pill px-3 py-1.5 text-[15px] ${
                     index === 0 ? 'j-circle' : ''
-                  }`}>
+                  }`}
+                >
                   {index === 0 ? (
                     <RedCircle label={`${monthLabel(key)} · ${items.length}`} />
                   ) : (
