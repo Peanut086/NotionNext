@@ -1264,8 +1264,11 @@ function LayoutSlug(props) {
     <main className='j-shell grid grid-cols-[minmax(0,1fr)] gap-8 py-10 lg:grid-cols-[220px_minmax(0,1fr)]'>
       <ArticleToc post={post} />
 
+      {/* 必须显式占第二列：ArticleToc 在没有目录时返回 null，
+          届时本元素会成为网格第一个子元素，被自动放进 220px 的边栏列，
+          正文压到 136px 且被 #notion-article 的 overflow-hidden 剪掉 */}
       <article
-        className={`j-slip j-tape px-5 py-8 md:px-10 md:py-12 ${paperAge(
+        className={`j-slip j-tape px-5 py-8 md:px-10 md:py-12 lg:col-start-2 ${paperAge(
           dayKey(postDate(post))
         )}`}
       >
