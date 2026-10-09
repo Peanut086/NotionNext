@@ -139,6 +139,28 @@ describe('SEO font resource hints', () => {
   })
 })
 
+describe('SEO route titles', () => {
+  it('titles /plog by route instead of falling back to "loading"', () => {
+    const spy = jest
+      .spyOn(require('next/router'), 'useRouter')
+      .mockReturnValue({
+        route: '/plog',
+        pathname: '/plog',
+        query: {},
+        asPath: '/plog',
+        locale: 'zh-CN',
+        locales: ['zh-CN']
+      })
+
+    const { container } = renderSeo('')
+    expect(container.querySelector('title')?.textContent).toBe(
+      'plog | Example Blog'
+    )
+
+    spy.mockRestore()
+  })
+})
+
 describe('font config defaults', () => {
   const originalFontUrl = process.env.NEXT_PUBLIC_FONT_URL
 

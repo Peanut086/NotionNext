@@ -471,6 +471,14 @@ const getSEOMeta = (props, router, locale) => {
         slug: 'category',
         type: 'website'
       }
+    case '/plog':
+      return {
+        title: `plog | ${siteInfo?.title}`,
+        description: `${siteInfo?.description}`,
+        image: `${siteInfo?.pageCover}`,
+        slug: 'plog',
+        type: 'website'
+      }
     default:
       const category = Array.isArray(post?.category)
         ? post?.category?.[0]
