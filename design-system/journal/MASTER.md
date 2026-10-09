@@ -69,6 +69,8 @@ CJK 注意：Amatic/Kalam/Cabin 均无中文字形。手写感的中文用 **LXG
 >
 > `unicodes.txt` = ASCII + Latin-1 + U+3000-303F + U+FF01-FF60 + U+2010-203B + GB2312 区 0xB0-0xF7（用 Python 逐码点解码生成）+ 从渲染页抓出的本站汉字。
 
+> **未清偿的字体债（2026-10-08 记录，尚未处理）**：中文手写已经自托管，但 `style.js` 顶部仍用 `@import url('https://fonts.googleapis.com/css2?...')` 拉 Amatic SC / Kalam / Cabin / JetBrains Mono 四个拉丁字形。这既是境内可达性风险（拉不到就整层 Marker/Hand 掉回系统字体），也是本主题唯一剩下的外部渲染阻塞。出路是同样子集化自托管（这四个只有拉丁字形，子集极小），并把 `@import` 换成 `@font-face`。另：站点 Notion 设置里的 `FONT_URL` 仍指 elemecdn 那份霞鹜文楷 CSS，WebFontLoader 每页白拉 6 个请求——代码侧已无引用（族名带 `Sub` 后缀不与之冲突），只能去设置页清，属于配置债不是代码债。
+
 ---
 
 ## 手工效果的实现配方
@@ -149,6 +151,16 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 
 照片一律**单色线稿占位**（桌面、咖啡、猫、雨街、车票、书架、跑步轨迹、键帽），不做真实摄影、不用灰块。
 
+### plog 落地记录（2026-10-08，实现时的偏离与结论）
+
+- **数据源不是 `type === 'PAGE'` 集合**。本仓库 `allPages` 的 `type` 只有 `Post` / `Page`，而 `Page` 是「关于 / 友链」这类固定页，不是照片。实际实现取**标签**：带 `JOURNAL_PLOG_TAG`（默认 `plog`，可用 `NEXT_PUBLIC_JOURNAL_PLOG_TAG` 覆盖）的已发布文章，**一篇 = 一张拍立得**，一句话说明用文章标题，日期用文章日期（逐张不同，正是出图里全 09.28 的那个瑕疵在真实数据下天然不存在）。
+- 照片取 `pageCoverThumbnail || pageCover`；两者都空时渲染 `.j-photo-empty` + `PhotoLineArt`（山 + 太阳的单色线稿），不给灰块。
+- **筛选放在主题里**，`pages/plog/index.js` 只负责给出全部已发布文章。原因：主题的 `CONFIG` 在 `getStaticProps` 阶段读不到（`siteConfig` 只合并 `blog.config.js` + Notion 配置），把标签名写进路由就要在两处重复默认值；这样改标签也无需重新构建。
+- 路由是静态段 `/plog`，优先级高于 `/[prefix]`。若将来在 Notion 里建了 slug 为 `plog` 的页面，会被这个路由遮蔽。
+- 拼贴墙的旋转与不等间距靠 `.j-collage` 的 `5n` 静态表（-2.4°~+2.8° + 逐档 `margin-top`），仍是 nth-child、无 JS 随机。
+- 为此给 `.j-polaroid` 补了 `position: relative`：条目标题用 `.j-stretch`（`::after { inset: 0 }`）把整张拍立得变成可点区，需要定位父级，否则伪元素会贴到更外层。同时补上与纸条一致的 hover「掀起 1px」。
+- 空态不是灰块，是一张胶带纸条：蓝圆珠笔「这一页还没贴照片。」+ Print 层说明怎么加标签。
+
 ## 加载态与 500
 
 - **首屏遮罩**（`LoadingCover`）：居中大张胶带纸 + 钢笔笔尖线稿正在落笔 + 墨点 + 蓝圆珠笔"正在摊开纸张…"；下方骨架屏用**铅笔草稿线**（不等长短的浅灰斜线 + 虚线拍立得轮廓），不用现代灰块
@@ -225,6 +237,19 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 - 代码块沿用 `styles/prism-theme.css` 结构，另出 `journal` 配色
 - 字体子集化产物放 `public/fonts/`；`preload` 放在本主题 `LayoutBase` 的 `<Head>` 而不是 `_document`（`_document` 全站共享，会让其它主题白下载 1.6 MB）
 - 主题下隐藏 `Fireworks` / `FlutteringRibbon` / `CursorDot` 等炫技组件（与本主题的"手工纸"语言冲突）
+
+### 分享栏落地记录（2026-10-08）
+
+之前 `ShareBar` 是全站共享组件、渲染品牌彩标圆图标，本主题里唯一还在破坏纸面语言的就是它。**结论：不改共享组件，在 `themes/journal/index.js` 内自绘 `ShareNote`**，其它主题不受影响。
+
+- 形态按规格：红字手写「分享」+ 纯文字链接，链接直接复用 `a` 的蓝圆珠笔波浪下划线，不加任何图标
+- 服务集走 `JOURNAL_SHARE_SERVICES`，默认 `link,weibo,twitter,email`；`link` 渲染成 `<button class="j-textlink">`（不是 `<a>` 也要有同一条波浪线，所以新增了 `.j-textlink`）
+- 仍然尊重站点的 `POST_SHARE_BAR_ENABLE` 和 `post.type === 'Post'` 判定，站长不用改两处开关
+- 除「复制」外的四项都渲染成真实 `<a href>`（服务端就用 `LINK + asPath` 兜底），所以禁用 JS 也点得动，符合性能红线里"静态导出下无 JS 也必须完整可读"
+
+### 波浪下划线成了一个 token
+
+`--hand-underline` 现在是那条蓝圆珠笔波浪线的唯一来源，`a` 与 `.j-textlink` 共用。因为它是内联 SVG、颜色写死在 data URI 里，`j-night` 必须再覆盖一次（夜间换成 `#7EA4D0`），否则牛皮纸上文字是亮蓝、下划线还是白天的深蓝。
 
 ---
 

@@ -14,6 +14,7 @@ const CONFIG = {
   JOURNAL_NAV_CATEGORY: true,
   JOURNAL_NAV_TAG: true,
   JOURNAL_NAV_SEARCH: true,
+  JOURNAL_NAV_PLOG: true,
 
   // 首页右栏便利贴「关于我」；头像走 BLOG.AUTHOR_AVATAR
   JOURNAL_ABOUT_TITLE: '关于我',
@@ -26,6 +27,22 @@ const CONFIG = {
   JOURNAL_SHOW_TOC: true,
   JOURNAL_SHOW_READING_PROGRESS: true,
   JOURNAL_TOC_TITLE: '这一页的目录',
+
+  // 分享（主题内自绘的纯文字手绘链接；总开关仍走站点 POST_SHARE_BAR_ENABLE）
+  JOURNAL_SHARE_BAR: true,
+  JOURNAL_SHARE_TITLE: '分享',
+  JOURNAL_SHARE_SERVICES: 'link,weibo,twitter,email',
+
+  // plog 照片墙：数据源是带 JOURNAL_PLOG_TAG 标签的文章，一篇一张拍立得
+  JOURNAL_PLOG_TITLE: 'plog',
+  JOURNAL_PLOG_SUBTITLE: '照片不修，话也不说长',
+  JOURNAL_PLOG_TAG: process.env.NEXT_PUBLIC_JOURNAL_PLOG_TAG || 'plog',
+  JOURNAL_PLOG_COUNT: 30,
+  JOURNAL_PLOG_RULE_TITLE: 'plog 规则',
+  JOURNAL_PLOG_RULE_TEXT:
+    process.env.NEXT_PUBLIC_JOURNAL_PLOG_RULE ||
+    '每月一页，贴满为止。一句话就够，不要写成长文。',
+  JOURNAL_PLOG_FOOTER: '每月一页，贴满为止',
 
   // 归档 / 分类 / 标签
   JOURNAL_ARCHIVE_TITLE: '归档',

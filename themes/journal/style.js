@@ -56,6 +56,8 @@ export const Style = () => {
         --wobble-alt: 15px 225px 15px 255px / 255px 15px 225px 15px;
         --shadow: 5px 5px 0 var(--ink);
         --shadow-hover: 6px 6px 0 var(--ink);
+        /* 蓝圆珠笔波浪下划线：链接与「手绘文字链」共用同一份 */
+        --hand-underline: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='6' viewBox='0 0 60 6'%3E%3Cpath d='M0 3.6C7 1.2 13 5 20 3.1s13-3.4 20-1.3 14 3.4 20 1.1' fill='none' stroke='%232D5DA1' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 
         color: var(--ink);
         background-color: var(--paper);
@@ -79,6 +81,8 @@ export const Style = () => {
         --yellow: #6b6233;
         --tape: rgba(120, 108, 88, 0.6);
         --grid: rgba(126, 164, 208, 0.18);
+        /* 波浪下划线是内联 SVG，颜色写死在 data URI 里，所以夜间要换一份 */
+        --hand-underline: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='6' viewBox='0 0 60 6'%3E%3Cpath d='M0 3.6C7 1.2 13 5 20 3.1s13-3.4 20-1.3 14 3.4 20 1.1' fill='none' stroke='%237EA4D0' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
       }
 
       /* ---------- 2. 手写体分层 ---------- */
@@ -322,12 +326,18 @@ export const Style = () => {
 
       /* 拍立得 */
       #theme-journal .j-polaroid {
+        position: relative;
         background: #fff;
         border: 1px solid var(--ink);
         border-radius: 3px;
         padding: 10px 10px 34px;
         box-shadow: var(--shadow);
         transform: rotate(var(--r, -1.5deg));
+        transition: transform 140ms ease, box-shadow 140ms ease;
+      }
+      #theme-journal .j-polaroid:hover {
+        transform: rotate(var(--r, -1.5deg)) translate(-1px, -1px);
+        box-shadow: var(--shadow-hover);
       }
       #theme-journal .j-polaroid img {
         display: block;
@@ -341,17 +351,70 @@ export const Style = () => {
         font-size: 15px;
       }
 
+      /* 拍立得拼贴墙：间距不等、旋转幅度比正文纸条更大（-3°~+3°）。
+         全部走 nth-child 静态表，不用 JS 随机，静态导出下也一致 */
+      #theme-journal .j-collage {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+        gap: 30px 24px;
+        align-items: start;
+      }
+      #theme-journal .j-collage > *:nth-child(5n + 1) {
+        --r: -2.4deg;
+      }
+      #theme-journal .j-collage > *:nth-child(5n + 2) {
+        --r: 1.6deg;
+        margin-top: 16px;
+      }
+      #theme-journal .j-collage > *:nth-child(5n + 3) {
+        --r: -0.8deg;
+      }
+      #theme-journal .j-collage > *:nth-child(5n + 4) {
+        --r: 2.8deg;
+        margin-top: -12px;
+      }
+      #theme-journal .j-collage > *:nth-child(5n + 5) {
+        --r: 0.6deg;
+        margin-top: 10px;
+      }
+      #theme-journal .j-collage > *:nth-child(3n) {
+        margin-right: 6px;
+      }
+      /* 没有封面的那条：单色线稿占位，不给灰块 */
+      #theme-journal .j-photo-empty {
+        display: grid;
+        place-items: center;
+        aspect-ratio: 4 / 3;
+        background: var(--paper);
+        border: 1px solid var(--ink);
+        color: var(--ink-soft);
+      }
+
       /* 链接：蓝圆珠笔波浪下划线 */
       #theme-journal a {
         color: var(--blue);
         text-decoration: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='6' viewBox='0 0 60 6'%3E%3Cpath d='M0 3.6C7 1.2 13 5 20 3.1s13-3.4 20-1.3 14 3.4 20 1.1' fill='none' stroke='%232D5DA1' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+        background-image: var(--hand-underline);
         background-repeat: repeat-x;
         background-size: 60px 6px;
         background-position: 0 96%;
         transition: background-position 180ms ease;
       }
-      #theme-journal a:hover {
+      /* 手绘文字链：不是 <a> 的行动点（如「复制链接」）也必须有同一条波浪线 */
+      #theme-journal .j-textlink {
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+        color: var(--blue);
+        background-color: transparent;
+        background-image: var(--hand-underline);
+        background-repeat: repeat-x;
+        background-size: 60px 6px;
+        background-position: 0 96%;
+        transition: background-position 180ms ease;
+      }
+      #theme-journal a:hover,
+      #theme-journal .j-textlink:hover {
         background-position: 0 88%;
       }
       #theme-journal a.j-plain {

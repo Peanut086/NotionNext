@@ -2,6 +2,7 @@ import NotionIcon from '@/components/NotionIcon'
 import NotionPage from '@/components/NotionPage'
 import replaceSearchResult from '@/components/Mark'
 import SmartLink from '@/components/SmartLink'
+import LazyImage from '@/components/LazyImage'
 import { siteConfig } from '@/lib/config'
 import { useGlobal } from '@/lib/global'
 import { isBrowser } from '@/lib/utils'
@@ -15,7 +16,6 @@ import CONFIG from './config'
 import { Style } from './style'
 
 const Comment = dynamic(() => import('@/components/Comment'), { ssr: false })
-const ShareBar = dynamic(() => import('@/components/ShareBar'), { ssr: false })
 const AISummary = dynamic(() => import('@/components/AISummary'), {
   ssr: false
 })
@@ -165,6 +165,50 @@ const Magnifier = () => (
   </svg>
 )
 
+const CameraDoodle = () => (
+  <svg viewBox='0 0 40 30' width='38' height='28' aria-hidden='true'>
+    <path
+      d='M3 9.4h7.6L13 5.6h13.4l2.2 3.8H37c1.2 0 2 .9 1.8 2.1l-1.6 14c-.2 1.2-1.1 2-2.3 2H5.1c-1.2 0-2.1-.8-2.3-2l-1.6-14C1 10.3 1.8 9.4 3 9.4z'
+      fill='none'
+      stroke='var(--ink)'
+      strokeWidth='1.6'
+      strokeLinejoin='round'
+    />
+    <path
+      d='M20 12.4a6 6 0 11-.2 12 6 6 0 01.2-12zM30.6 13.4h3.2'
+      fill='none'
+      stroke='var(--ink)'
+      strokeWidth='1.6'
+      strokeLinecap='round'
+    />
+  </svg>
+)
+
+const FilmDoodle = () => (
+  <svg viewBox='0 0 30 72' width='26' height='64' aria-hidden='true'>
+    <path
+      d='M4 3h22c1.2 0 2 .9 2 2.1v61.8c0 1.2-.8 2.1-2 2.1H4c-1.2 0-2-.9-2-2.1V5.1C2 3.9 2.8 3 4 3zM2 15h26M2 29h26M2 43h26M2 57h26M8 6v3M8 20v3M8 34v3M8 48v3M8 62v3M22 6v3M22 20v3M22 34v3M22 48v3M22 62v3'
+      fill='none'
+      stroke='var(--ink)'
+      strokeWidth='1.4'
+      strokeLinecap='round'
+    />
+  </svg>
+)
+
+/** 没有照片时的单色线稿占位：一座小山 + 一个太阳，不给灰块 */
+const PhotoLineArt = () => (
+  <svg viewBox='0 0 64 44' width='58' height='40' aria-hidden='true'>
+    <path
+      d='M6 34c8-2 12-14 20-14s10 14 20 14 8-6 8-6M44 12.6a5.2 5.2 0 11.2 10.4 5.2 5.2 0 01-.2-10.4z'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='1.6'
+      strokeLinecap='round'
+    />
+  </svg>
+)
+
 /* ------------------------------------------------------------------ *
  * 通用纸片
  * ------------------------------------------------------------------ */
@@ -254,6 +298,11 @@ function TopBar(props) {
       name: locale?.COMMON?.TAGS || '标签',
       href: '/tag',
       show: j('JOURNAL_NAV_TAG', true)
+    },
+    {
+      name: j('JOURNAL_PLOG_TITLE', 'plog'),
+      href: '/plog',
+      show: j('JOURNAL_NAV_PLOG', true)
     },
     {
       name: locale?.NAV?.SEARCH || '搜索',
@@ -812,6 +861,102 @@ function ArticleAround({ prev, next }) {
   )
 }
 
+/* ------------------------------------------------------------------ *
+ * 分享：手写「分享」+ 纯文字手绘下划线链接
+ * 共享的 ShareBar 是品牌彩标圆图标，会破坏纸面语言，这里主题内自绘；
+ * 但沿用它的开关配置，站长不用改两处
+ * ------------------------------------------------------------------ */
+
+const SHARE_TEXT_LABELS = {
+  weibo: '微博',
+  twitter: 'X',
+  telegram: 'Telegram',
+  email: '邮件',
+  link: '复制'
+}
+
+function ShareNote({ post }) {
+  const router = useRouter()
+  const { locale } = useGlobal()
+  const [liveUrl, setLiveUrl] = useState('')
+
+  useEffect(() => {
+    setLiveUrl(window.location.href)
+  }, [])
+
+  const services = String(
+    j('JOURNAL_SHARE_SERVICES', 'link,weibo,twitter,email')
+  )
+    .split(',')
+    .map(name => name.trim())
+    .filter(name => SHARE_TEXT_LABELS[name])
+
+  // 服务端渲染时退回站点链接 + 路径，保证静态导出下链接本身就是完整的
+  const encoded = encodeURIComponent(
+    liveUrl || `${siteConfig('LINK')}${router.asPath}`
+  )
+  const text = encodeURIComponent(`${post?.title || ''} | ${siteConfig('TITLE')}`)
+
+  const hrefOf = service => {
+    switch (service) {
+      case 'weibo':
+        return `https://service.weibo.com/share/share.php?url=${encoded}&title=${text}`
+      case 'twitter':
+        return `https://twitter.com/intent/tweet?url=${encoded}&text=${text}`
+      case 'telegram':
+        return `https://t.me/share/url?url=${encoded}&text=${text}`
+      case 'email':
+        return `mailto:?subject=${text}&body=${encoded}`
+      default:
+        return null
+    }
+  }
+
+  const copyUrl = () => {
+    const decoded = decodeURIComponent(encoded)
+    navigator?.clipboard?.writeText(decoded)
+    alert(`${locale?.COMMON?.URL_COPIED || '链接已复制'} 
+${decoded}`)
+  }
+
+  const enabled = ['true', true].includes(
+    siteConfig('POST_SHARE_BAR_ENABLE', true)
+  )
+  if (!enabled || !j('JOURNAL_SHARE_BAR', true) || post?.type !== 'Post') {
+    return null
+  }
+
+  return (
+    <section className='mt-8 flex flex-wrap items-center gap-x-5 gap-y-2'>
+      <span className='j-hand j-red text-[20px]'>
+        {j('JOURNAL_SHARE_TITLE', '分享')}
+      </span>
+      <span className='j-hand flex flex-wrap items-center gap-x-5 gap-y-1 text-[18px]'>
+        {services.map(service =>
+          service === 'link' ? (
+            <button
+              key={service}
+              type='button'
+              className='j-textlink py-2'
+              onClick={copyUrl}>
+              {SHARE_TEXT_LABELS[service]}
+            </button>
+          ) : (
+            <a
+              key={service}
+              href={hrefOf(service)}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='py-2'>
+              {SHARE_TEXT_LABELS[service]}
+            </a>
+          )
+        )}
+      </span>
+    </section>
+  )
+}
+
 function LayoutSlug(props) {
   const { post, lock, validPassword, prev, next, recommendPosts } = props
   const { locale } = useGlobal()
@@ -881,7 +1026,7 @@ function LayoutSlug(props) {
           </span>
         </div>
 
-        <ShareBar post={post} />
+        <ShareNote post={post} />
 
         <ArticleAround prev={prev} next={next} />
         {post?.type === 'Post' && recommendPosts?.length > 0 && (
@@ -1074,6 +1219,173 @@ function LayoutTagIndex(props) {
   )
 }
 
+/* ---------- plog 照片墙 ---------- */
+
+/** 2026-09 → 2026 年 9 月 */
+const monthLabel = key => {
+  const [year, month] = String(key).split('-')
+  return month ? `${year} 年 ${Number(month)} 月` : '没写日期'
+}
+
+const monthKey = post => String(postDate(post)).slice(0, 7) || 'undated'
+
+/** 一张拍立得：照片 + 蓝圆珠笔一句话 + 红邮戳（逐张取真实日期） */
+function Polaroid({ post, priority = false }) {
+  if (!post) return null
+  const cover = post.pageCoverThumbnail || post.pageCover
+
+  return (
+    <figure className='j-polaroid'>
+      {cover ? (
+        <LazyImage
+          src={cover}
+          alt={post.title}
+          priority={priority}
+          className='aspect-[4/3] w-full object-cover'
+        />
+      ) : (
+        <div className='j-photo-empty'>
+          <PhotoLineArt />
+        </div>
+      )}
+
+      <figcaption>
+        <SmartLink href={postHref(post)} className='j-stretch'>
+          {post.title}
+        </SmartLink>
+      </figcaption>
+      <div className='mt-1 flex items-center justify-between gap-2'>
+        <span className='j-stamp-date j-stamp'>{stampMD(post)}</span>
+        <span className='j-stamp j-soft'>{stampYear(post)}</span>
+      </div>
+    </figure>
+  )
+}
+
+function LayoutPlog(props) {
+  const { posts = [] } = props
+  const tag = j('JOURNAL_PLOG_TAG', 'plog')
+  const limit = Number(j('JOURNAL_PLOG_COUNT', 30)) || 30
+
+  const photos = useMemo(
+    () =>
+      posts
+        .filter(post => post?.tags?.includes(tag))
+        .sort((a, b) => String(postDate(b)).localeCompare(String(postDate(a))))
+        .slice(0, limit),
+    [posts, tag, limit]
+  )
+
+  const byMonth = useMemo(() => {
+    const map = new Map()
+    photos.forEach(post => {
+      const key = monthKey(post)
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(post)
+    })
+    return [...map.entries()]
+  }, [photos])
+
+  const currentCount = byMonth[0]?.[1]?.length || 0
+
+  return (
+    <main className='j-shell grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_280px]'>
+      <div>
+        <div className='flex items-end gap-4'>
+          <h1 className='j-marker text-[48px] leading-none md:text-[58px]'>
+            {j('JOURNAL_PLOG_TITLE', 'plog')}
+          </h1>
+          <CameraDoodle />
+        </div>
+        <div className='max-w-[24ch]'>
+          <HandRule />
+        </div>
+        <p className='j-print j-soft mt-2'>
+          {j('JOURNAL_PLOG_SUBTITLE', '')}
+        </p>
+        <div className='j-stamp j-soft mt-1'>
+          {photos.length} 张 · {monthLabel(byMonth[0]?.[0])}
+        </div>
+
+        {photos.length === 0 ? (
+          <div className='j-slip j-tape-single mt-9 px-6 py-10 text-center'>
+            <p className='j-hand j-blue text-[22px]'>
+              这一页还没贴照片。
+            </p>
+            <p className='j-print j-soft mt-2 text-[15px]'>
+              在 Notion 里给想进照片墙的文章加上「{tag}」标签，并给它配一张封面图。
+            </p>
+          </div>
+        ) : (
+          byMonth.map(([key, items]) => (
+            <section
+              key={key}
+              id={`plog-${key}`}
+              className='mt-10 scroll-mt-24'>
+              <h2 className='j-hand j-blue text-[22px]'>
+                {monthLabel(key)} · {items.length} 张
+              </h2>
+              <div className='j-collage mt-5'>
+                {items.map((post, index) => (
+                  <Polaroid
+                    key={post?.id || post?.slug || index}
+                    post={post}
+                    priority={index < 4}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
+        )}
+
+        {byMonth.length > 1 && (
+          <hr className='j-dashed-rule mt-12' />
+        )}
+        {byMonth.length > 1 && (
+          <>
+            <nav
+              aria-label='月份'
+              className='j-tilt-group mt-6 flex flex-wrap items-center gap-3'>
+              {byMonth.map(([key, items], index) => (
+                <a
+                  key={key}
+                  href={`#plog-${key}`}
+                  className={`j-pill px-3 py-1.5 text-[15px] ${
+                    index === 0 ? 'j-circle' : ''
+                  }`}>
+                  {index === 0 ? (
+                    <RedCircle label={`${monthLabel(key)} · ${items.length}`} />
+                  ) : (
+                    <span className='relative z-10'>
+                      {monthLabel(key)} · {items.length}
+                    </span>
+                  )}
+                </a>
+              ))}
+            </nav>
+            <p className='j-hand j-red mt-4 text-[19px]'>
+              {j('JOURNAL_PLOG_FOOTER', '')}
+            </p>
+          </>
+        )}
+      </div>
+
+      <aside className='space-y-8'>
+        <StickyNote title={j('JOURNAL_PLOG_RULE_TITLE', '')}>
+          <p>{j('JOURNAL_PLOG_RULE_TEXT', '')}</p>
+        </StickyNote>
+        <div className='flex items-start gap-4'>
+          <FilmDoodle />
+          <div className='j-stamp j-soft pt-2'>
+            本月 {currentCount} / {limit}
+            <div className='mt-1'>超出的一律贴到下个月</div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  )
+}
+
 /* ---------- 404 / 500 / 认证页共用的大胶带纸 ---------- */
 
 function BigTapedPaper({ children }) {
@@ -1174,6 +1486,7 @@ export {
   LayoutCategoryIndex,
   LayoutDashboard,
   LayoutIndex,
+  LayoutPlog,
   LayoutPostList,
   LayoutSearch,
   LayoutSignIn,
