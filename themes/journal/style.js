@@ -56,8 +56,15 @@ export const Style = () => {
         --wobble-alt: 15px 225px 15px 255px / 255px 15px 225px 15px;
         --shadow: 5px 5px 0 var(--ink);
         --shadow-hover: 6px 6px 0 var(--ink);
+        /* 纸条墨边专用：与 --ink 同源，只有「纸会老」的旧档会把它换成 --ink-soft。
+           阴影不吃这个 token —— 阴影是结构，不褪色 */
+        --j-edge: var(--ink);
         /* 蓝圆珠笔波浪下划线：链接与「手绘文字链」共用同一份 */
         --hand-underline: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='6' viewBox='0 0 60 6'%3E%3Cpath d='M0 3.6C7 1.2 13 5 20 3.1s13-3.4 20-1.3 14 3.4 20 1.1' fill='none' stroke='%232D5DA1' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+        /* plog 撕线：一行铅笔墨点，同样把颜色写死在 data URI 里 */
+        --tear-line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6' viewBox='0 0 12 6'%3E%3Ccircle cx='6' cy='3' r='1.7' fill='%235C5C5C'/%3E%3C/svg%3E");
+        /* 红字批注的回指箭头：颜色同样烧在 data URI 里，j-night 要再覆盖一次 */
+        --backref-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='21' viewBox='0 0 30 21'%3E%3Cpath d='M28 20C24 15 17 10 5 5M12.6 4.2C10.4 4.2 7.6 4.4 5 5M5 5C5.4 7.6 6 10.2 7.4 12.6' fill='none' stroke='%23FF4D4D' stroke-width='1.9' stroke-linecap='round'/%3E%3C/svg%3E");
 
         color: var(--ink);
         background-color: var(--paper);
@@ -85,6 +92,8 @@ export const Style = () => {
         --grid: rgba(126, 164, 208, 0.18);
         /* 波浪下划线是内联 SVG，颜色写死在 data URI 里，所以夜间要换一份 */
         --hand-underline: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='6' viewBox='0 0 60 6'%3E%3Cpath d='M0 3.6C7 1.2 13 5 20 3.1s13-3.4 20-1.3 14 3.4 20 1.1' fill='none' stroke='%237EA4D0' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+        --tear-line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6' viewBox='0 0 12 6'%3E%3Ccircle cx='6' cy='3' r='1.7' fill='%23B9B0A3'/%3E%3C/svg%3E");
+        --backref-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='21' viewBox='0 0 30 21'%3E%3Cpath d='M28 20C24 15 17 10 5 5M12.6 4.2C10.4 4.2 7.6 4.4 5 5M5 5C5.4 7.6 6 10.2 7.4 12.6' fill='none' stroke='%23D9605F' stroke-width='1.9' stroke-linecap='round'/%3E%3C/svg%3E");
       }
 
       /* ---------- 2. 手写体分层 ---------- */
@@ -155,7 +164,7 @@ export const Style = () => {
       #theme-journal .j-slip {
         position: relative;
         background: var(--slip);
-        border: 2px solid var(--ink);
+        border: 2px solid var(--j-edge);
         border-radius: var(--wobble);
         box-shadow: var(--shadow);
         transform: rotate(var(--r, 0deg));
@@ -280,6 +289,426 @@ export const Style = () => {
         );
         pointer-events: none;
         z-index: 2;
+      }
+
+      /* ---------- 3b. 状态编码：材质即语法 ---------- *
+       * 判定与规格都在 MASTER「状态编码」节，这里只负责呈现 */
+
+      /* 精选 = 便利贴黄纸底；plog 短记 = 和纸色纸底。
+         写在后面的一条胜出，即两者同时命中时取黄（精选是作者意图，plog 是体裁） */
+      #theme-journal .j-slip.j-receipt {
+        background: var(--tape);
+      }
+      #theme-journal .j-slip.j-featured {
+        background: var(--yellow);
+      }
+
+      /* plog 撕线：一行墨点平铺。不用 mask —— 给纸条上 mask 会连带咬掉歪斜墨边 */
+      #theme-journal .j-teeth {
+        position: absolute;
+        top: 9px;
+        left: 16px;
+        right: 16px;
+        height: 6px;
+        background-image: var(--tear-line);
+        background-repeat: repeat-x;
+        opacity: 0.6;
+        pointer-events: none;
+      }
+
+      /* 已修订 = 左下角再斜贴一小块胶带（另贴一次），不占上沿、不与主胶带混在一起 */
+      #theme-journal .j-tape-bit {
+        position: absolute;
+        bottom: -9px;
+        left: 26px;
+        width: 46px;
+        height: 17px;
+        background: var(--tape);
+        opacity: 0.75;
+        transform: rotate(-34deg);
+        clip-path: polygon(
+          0 12%,
+          14% 0,
+          31% 11%,
+          49% 1%,
+          66% 10%,
+          83% 0,
+          100% 8%,
+          100% 92%,
+          83% 100%,
+          66% 90%,
+          49% 100%,
+          31% 89%,
+          14% 100%,
+          0 90%
+        );
+        pointer-events: none;
+        z-index: 3;
+      }
+
+      /* 置顶 = 图钉在左上角 */
+      #theme-journal .j-pin {
+        position: absolute;
+        top: -19px;
+        left: 18px;
+        z-index: 3;
+        transform: rotate(-6deg);
+        filter: drop-shadow(2px 2px 0 var(--ink));
+        pointer-events: none;
+      }
+      #theme-journal .j-pin-doodle {
+        display: block;
+      }
+
+      /* 右上角只有一格：加密的折叠角优先于带图的拍立得角标 */
+      #theme-journal .j-fold {
+        position: absolute;
+        top: -13px;
+        right: 20px;
+        z-index: 3;
+        transform: rotate(2deg);
+        pointer-events: none;
+      }
+      #theme-journal .j-photo-tab {
+        position: absolute;
+        top: -14px;
+        right: 18px;
+        z-index: 3;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 38px;
+        padding-bottom: 12px;
+        background: var(--slip);
+        border: 2px solid var(--ink);
+        color: var(--ink-soft);
+        box-shadow: 3px 3px 0 var(--ink);
+        transform: rotate(-7deg);
+        pointer-events: none;
+      }
+
+      #theme-journal .j-photo-tab svg {
+        /* 和纸色当"照片"，否则白框贴在白纸上完全看不出来 */
+        background: var(--tape);
+      }
+
+      /* 图形不承载唯一信息：每个状态都配一个 Stamp 层文字 */
+      #theme-journal .j-mark {
+        color: var(--ink-soft);
+      }
+
+      /* ---------- 3c. 目录 = 侧伸的索引贴 ---------- */
+      #theme-journal .j-tabs {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 7px;
+      }
+      #theme-journal .j-tab {
+        position: relative;
+        display: block;
+        margin-left: var(--j-ind, 0px);
+        max-width: calc(100% - var(--j-ind, 0px));
+        padding: 4px 11px 4px 17px;
+        background: var(--slip);
+        border: 2px solid var(--ink);
+        border-radius: 3px 14px 4px 12px / 12px 4px 14px 3px;
+        box-shadow: 3px 3px 0 var(--ink);
+        transform: rotate(var(--r, 0deg));
+        transition:
+          transform 140ms ease,
+          box-shadow 140ms ease;
+      }
+      /* 伸出端那一小条色带：只做定位色，不承载状态语义 */
+      #theme-journal .j-tab::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        bottom: -2px;
+        left: -2px;
+        width: 9px;
+        background: var(--yellow);
+        border: 2px solid var(--ink);
+        border-radius: 3px 0 0 4px;
+      }
+      #theme-journal .j-tabs > .j-tab:nth-child(3n + 2)::before {
+        background: var(--blue);
+      }
+      #theme-journal .j-tabs > .j-tab:nth-child(3n + 3)::before {
+        background: var(--red);
+      }
+      /* 旋转固定表，仍不用 JS 随机 */
+      #theme-journal .j-tabs > .j-tab:nth-child(3n + 1) {
+        --r: -1deg;
+      }
+      #theme-journal .j-tabs > .j-tab:nth-child(3n + 2) {
+        --r: 0.7deg;
+      }
+      #theme-journal .j-tabs > .j-tab:nth-child(3n + 3) {
+        --r: -0.5deg;
+      }
+      #theme-journal .j-tab:hover {
+        transform: rotate(var(--r, 0deg)) translate(-2px, -1px);
+        box-shadow: 5px 5px 0 var(--ink);
+      }
+      #theme-journal .j-tab-text {
+        display: block;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-family: var(--font-print);
+        font-size: 15px;
+        line-height: 1.5;
+        color: var(--ink);
+      }
+      /* 当前那张：向左抽出一截 + 一道红笔划过 */
+      #theme-journal .j-tab-current,
+      #theme-journal .j-tab-current:hover {
+        transform: rotate(var(--r, 0deg)) translateX(-6px);
+        box-shadow: 5px 5px 0 var(--ink);
+      }
+      #theme-journal .j-tab-current .j-tab-text {
+        color: var(--ink);
+      }
+      #theme-journal .j-rule.j-tab-slash {
+        position: absolute;
+        left: 16px;
+        right: 6px;
+        bottom: 1px;
+        width: calc(100% - 22px);
+        height: 10px;
+        transform: rotate(-1.6deg);
+        opacity: 0.85;
+      }
+
+      /* ---------- 3d. 一天一摊：日期是纸，不是字段 ---------- */
+      #theme-journal .j-day {
+        position: relative;
+      }
+      #theme-journal .j-days > .j-day + .j-day {
+        margin-top: 36px;
+      }
+      /* 摊眉：邮戳 + 星期/月份 + 张数，日期永远有字，不靠图形单独表达 */
+      #theme-journal .j-day-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 22px;
+      }
+      #theme-journal .j-day-stamp {
+        font-size: 17px;
+      }
+      #theme-journal .j-day-week {
+        font-size: 16px;
+      }
+      #theme-journal .j-day-count {
+        color: var(--ink-soft);
+      }
+      #theme-journal .j-day-page {
+        display: grid;
+        align-content: start;
+        gap: 24px;
+      }
+      #theme-journal .j-day-spread {
+        display: grid;
+        gap: 24px;
+      }
+      @media (min-width: 768px) {
+        #theme-journal .j-day-spread {
+          grid-template-columns: minmax(0, 1fr) 2px minmax(0, 1fr);
+          gap: 26px;
+          align-items: stretch;
+        }
+      }
+      /* 装订中缝：真实元素，窄屏折成横向一道；虚线只用 border-style */
+      #theme-journal .j-spine {
+        justify-self: center;
+        margin: 18px 0;
+        border-left: 2px dashed var(--ink-soft);
+        opacity: 0.5;
+      }
+      @media (max-width: 767px) {
+        #theme-journal .j-spine {
+          width: 100%;
+          align-self: center;
+          margin: 0 18px;
+          border-top: 2px dashed var(--ink-soft);
+          border-left: 0;
+        }
+      }
+      #theme-journal .j-day-more {
+        display: inline-block;
+        margin-top: 22px;
+        font-size: 14px;
+        color: var(--ink-soft);
+      }
+      /* 归档：一天一个时间轴节点，节点挂在摊眉那一行 */
+      #theme-journal .j-days-axis .j-day::before {
+        content: '';
+        position: absolute;
+        top: 4px;
+        left: -26px;
+        width: 10px;
+        height: 10px;
+        background: var(--slip);
+        border: 2px solid var(--ink);
+        border-radius: 40% 60% 50% 50%;
+      }
+
+      /* ---------- 3e. 打包细节：连线 / 抽屉 / 装订 ---------- */
+      #theme-journal .j-around {
+        display: grid;
+        gap: 26px;
+      }
+      @media (min-width: 768px) {
+        #theme-journal .j-around-both {
+          grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
+          gap: 0;
+          align-items: center;
+        }
+      }
+      #theme-journal .j-around-card {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: flex-start;
+      }
+      #theme-journal .j-around-card-right {
+        align-items: flex-end;
+      }
+      /* 铅笔虚线 + 箭头：墨灰，不红（作者痕迹）也不蓝（可点击） */
+      #theme-journal .j-thread {
+        width: 100%;
+        height: 24px;
+        overflow: visible;
+        color: var(--ink-soft);
+      }
+      #theme-journal .j-thread path {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+      }
+      #theme-journal .j-thread .j-thread-line {
+        stroke-dasharray: 6 5;
+      }
+      @media (max-width: 767px) {
+        #theme-journal .j-thread {
+          width: 24px;
+          margin: 0 auto;
+          transform: rotate(90deg);
+        }
+      }
+      /* 抽屉：面板在前，结果纸条从下沿后面抽出来 */
+      #theme-journal .j-drawer {
+        position: relative;
+        z-index: 2;
+      }
+      #theme-journal .j-drawer-handle {
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        width: 18px;
+        height: 10px;
+        margin-left: -9px;
+        background: var(--slip);
+        border: 2px solid var(--ink);
+        border-bottom: 0;
+        border-radius: 4px 6px 0 0 / 5px 7px 0 0;
+        transform: rotate(-1.2deg);
+      }
+      #theme-journal .j-drawer-label {
+        position: absolute;
+        top: -13px;
+        left: 18px;
+        z-index: 3;
+        padding: 1px 8px;
+        background: var(--slip);
+        border: 2px solid var(--ink);
+        border-radius: var(--wobble-alt);
+        transform: rotate(-3deg);
+        font-size: 12px;
+      }
+      #theme-journal .j-drawer-out {
+        margin-top: -14px;
+      }
+      /* 按年装订：顶部一道装订边 + 两枚订书钉，不另起第二道竖线 */
+      #theme-journal .j-year-stack {
+        position: relative;
+        margin-top: 18px;
+        padding-top: 14px;
+      }
+      #theme-journal .j-year-stack::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 92px;
+        height: 2px;
+        background: var(--ink);
+        opacity: 0.75;
+        transform: rotate(-0.4deg);
+      }
+      #theme-journal .j-staple {
+        position: absolute;
+        top: -7px;
+        width: 16px;
+        height: 9px;
+        background: var(--paper);
+        border: 2px solid var(--ink);
+        border-bottom: 0;
+        border-radius: 3px 5px 0 0 / 4px 6px 0 0;
+      }
+      #theme-journal .j-staple-a {
+        left: 22px;
+        transform: rotate(-8deg);
+      }
+      #theme-journal .j-staple-b {
+        left: 48px;
+        transform: rotate(6deg);
+      }
+
+      /* ---------- 3f. 纸会老：材质层，只淡墨不换色 ---------- *
+         档位由 index.js 的 paperAge() 按 publishDate 算，只加类不写死样式。
+         老化绝不碰底色（归状态编码）、不碰胶带（修订标记就是胶带）、不碰正文 */
+      #theme-journal .j-age-1 .j-stamp-date {
+        opacity: 0.86;
+      }
+      #theme-journal .j-age-2 .j-stamp-date {
+        opacity: 0.72;
+      }
+      #theme-journal .j-age-2 {
+        --j-edge: var(--ink-soft);
+      }
+
+      /* ---------- 3g. 红字批注：Notion 段落整段设红 = 作者的手 ---------- *
+         语法是 block_color=red，react-notion-x 落到 .notion-text.notion-red。
+         不搬进物理页边（测量框与纸缘只剩 112px）、本体不转（.notion-* 禁 transform）。
+         margin 三条必须带 !important：内置 styles/notion.css 给 .notion-text 写了
+         margin 简写且 !important，不压住它则 auto 推到右侧与上下留白全部静默失效 */
+      #theme-journal .notion-text.notion-red {
+        position: relative;
+        width: min(30ch, 100%);
+        margin-top: 26px !important;
+        margin-bottom: 4px !important;
+        margin-left: auto !important;
+        padding-right: 2px;
+        font-family: var(--font-hand);
+        font-size: 19px;
+        font-weight: 700;
+        line-height: 1.6;
+        color: var(--red);
+      }
+      /* 回指箭头：说的是上面那段正文。歪的只允许是这个伪元素 */
+      #theme-journal .notion-text.notion-red::before {
+        content: '';
+        position: absolute;
+        top: -22px;
+        left: 0;
+        width: 30px;
+        height: 21px;
+        background-image: var(--backref-arrow);
+        background-repeat: no-repeat;
       }
 
       /* 便利贴黄 */
@@ -488,8 +917,12 @@ export const Style = () => {
       #theme-journal .j-shell {
         width: 100%;
         max-width: 1180px;
-        margin: 0 auto;
-        padding: 0 20px;
+        /* 只锁横向：写成 margin/padding 简写会以 ID 特异度压掉同元素上的
+           Tailwind 竖向工具类（mt、py 等），整站留白会静默失效 */
+        margin-left: auto;
+        margin-right: auto;
+        padding-left: 20px;
+        padding-right: 20px;
       }
       #theme-journal .j-masthead {
         padding: 40px 0 6px;
@@ -901,7 +1334,8 @@ export const Style = () => {
           max-width: none;
         }
         #theme-journal .j-shell {
-          padding: 0 16px;
+          padding-left: 16px;
+          padding-right: 16px;
         }
         #theme-journal .notion-code {
           max-width: 100vw;
@@ -931,6 +1365,17 @@ export const Style = () => {
         }
         #theme-journal .j-btn:hover {
           transform: none;
+        }
+        /* 索引贴：关掉掀起，但当前那张"抽出 6px"是静态状态指示，要保留 */
+        #theme-journal .j-tab {
+          transition: none;
+        }
+        #theme-journal .j-tab:hover {
+          transform: rotate(var(--r, 0deg));
+        }
+        #theme-journal .j-tab-current,
+        #theme-journal .j-tab-current:hover {
+          transform: rotate(var(--r, 0deg)) translateX(-6px);
         }
       }
     `}</style>

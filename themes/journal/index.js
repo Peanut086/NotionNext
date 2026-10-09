@@ -56,12 +56,6 @@ const stampYear = post => {
   return Number.isNaN(d.getTime()) ? '未日期' : String(d.getFullYear())
 }
 
-const monthName = post => {
-  const d = new Date(postDate(post))
-  if (Number.isNaN(d.getTime())) return '此刻'
-  return `${d.getMonth() + 1} 月`
-}
-
 const postHref = post => {
   if (!post) return '/'
   if (post.href) return post.href
@@ -72,6 +66,101 @@ const postHref = post => {
 const isLocked = post => !!post?.password
 
 const j = (key, fallback) => siteConfig(key, fallback, CONFIG)
+
+const dayKey = value => {
+  if (!value) return ''
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '' : formatDateFmt(d, 'yyyy-MM-dd')
+}
+
+const DAY_MS = 86400000
+const utcDayNumber = ms => Math.floor(ms / DAY_MS)
+
+/**
+ * 纸会老（材质层）：只淡墨、不换色。见 design-system/journal/MASTER.md「纸会老」节。
+ * 基准日两侧都按 UTC 日编号算，否则服务端与客户端跨午夜会算出不同档位 → className 不一致撞 hydration
+ */
+const paperAge = key => {
+  if (!key || !j('JOURNAL_PAPER_AGE', true)) return ''
+  const born = Date.parse(`${key}T00:00:00Z`)
+  if (Number.isNaN(born)) return ''
+  const ageDays = utcDayNumber(Date.now()) - utcDayNumber(born)
+  if (ageDays > Number(j('JOURNAL_AGE_OLD_DAYS', 730))) return 'j-age-2'
+  if (ageDays > Number(j('JOURNAL_AGE_MID_DAYS', 180))) return 'j-age-1'
+  return ''
+}
+
+/* ------------------------------------------------------------------ *
+ * 状态编码：胶带/图钉是语法，不是装饰
+ * 判定集中在这一个函数，规格见 design-system/journal/MASTER.md
+ * 「状态编码」节；PostSlip 只消费返回的有序数组
+ * ------------------------------------------------------------------ */
+
+const stateMarks = post => {
+  if (!post || !j('JOURNAL_STATE_ENCODING', true)) return []
+
+  const tags = post?.tags || []
+  const topTag = siteConfig('TOP_TAG', '')
+  const published = dayKey(post?.publishDate || post?.date?.start_date)
+  const edited = dayKey(post?.lastEditedDate)
+  // Notion 的 last_edited_time 改一个标点都会动，只认「隔了些天再回来改」
+  const gapDays = (new Date(edited || 0) - new Date(published || 0)) / 86400000
+  const revised = gapDays >= Number(j('JOURNAL_REVISED_DAYS', 7))
+
+  return (
+    [
+      isLocked(post) && { key: 'locked', label: '加密' },
+      topTag && tags.includes(topTag) && { key: 'pinned', label: '置顶' },
+      tags.includes(j('JOURNAL_FEATURED_TAG', 'featured')) && {
+        key: 'featured',
+        label: j('JOURNAL_FEATURED_LABEL', '精选')
+      },
+      revised && { key: 'revised', label: '修订' },
+      tags.includes(j('JOURNAL_PLOG_TAG', 'plog')) && {
+        key: 'receipt',
+        label: j('JOURNAL_PLOG_TITLE', 'plog')
+      },
+      !isLocked(post) &&
+        (post?.pageCoverThumbnail || post?.pageCover) && {
+          key: 'photo',
+          label: '有图'
+        }
+    ]
+      .filter(Boolean)
+      // 一张纸条最多 3 个标记，超出按上面的书写顺序截断
+      .slice(0, 3)
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * 一天一摊：同一天发的合成一张跨页
+ * 规格见 design-system/journal/MASTER.md「一天一摊」节
+ * ------------------------------------------------------------------ */
+
+const WEEK_CN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+
+/** 同天即同一摊：摊序按该天首次出现的位置，摊内保持后端顺序 */
+const dayGroups = (posts = []) => {
+  const map = new Map()
+  posts.forEach(post => {
+    const key = dayKey(postDate(post))
+    if (!map.has(key)) map.set(key, { key, posts: [] })
+    map.get(key).posts.push(post)
+  })
+  return [...map.values()]
+}
+
+const mdOf = key => (key || '').slice(5).replace('-', '.')
+
+const monthOf = key => {
+  const d = new Date(key)
+  return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1} 月`
+}
+
+const weekOf = key => {
+  const d = new Date(key)
+  return Number.isNaN(d.getTime()) ? '' : WEEK_CN[d.getDay()]
+}
 
 /* ------------------------------------------------------------------ *
  * 手绘涂鸦：全部内联 SVG，不用 emoji、不发图片请求
@@ -137,6 +226,17 @@ const PaperPlane = () => (
       stroke='var(--ink)'
       strokeWidth='1.5'
       strokeLinejoin='round'
+    />
+  </svg>
+)
+
+/** 上/下一篇之间的铅笔连线：两篇俱在时才画，见 MASTER「打包细节」 */
+const ThreadLink = () => (
+  <svg className='j-thread' viewBox='0 0 56 24' aria-hidden='true'>
+    <path className='j-thread-line' d='M2 13c8-8 12 7 20 1s11 3 18-3' />
+    <path
+      className='j-thread-head'
+      d='M36 5.6c3.4 2.6 5.6 5 7 8.4-3.2.6-5.4 1.4-7.6 2.8'
     />
   </svg>
 )
@@ -209,16 +309,93 @@ const PhotoLineArt = () => (
   </svg>
 )
 
+/** 图钉：置顶的那页是被钉住的 */
+const PinDoodle = () => (
+  <svg
+    className='j-pin-doodle'
+    viewBox='0 0 18 22'
+    width='21'
+    height='26'
+    aria-hidden='true'
+  >
+    <path
+      d='M9 13.4l1.1 6.2M4.4 6.6a4.6 4.6 0 119.2 0 4.6 4.6 0 01-9.2 0z'
+      fill='none'
+      stroke='var(--ink)'
+      strokeWidth='1.6'
+      strokeLinecap='round'
+    />
+    <circle
+      cx='9'
+      cy='6.6'
+      r='3'
+      fill='var(--red)'
+      stroke='var(--ink)'
+      strokeWidth='1.4'
+    />
+  </svg>
+)
+
+/** 折叠角：折起来压住的那页，看不见里面写了什么 */
+const FoldDoodle = () => (
+  <svg
+    className='j-fold'
+    viewBox='0 0 26 26'
+    width='26'
+    height='26'
+    aria-hidden='true'
+  >
+    <path
+      d='M2.6 1.8h21.6v23.4z'
+      fill='var(--tape)'
+      stroke='var(--ink)'
+      strokeWidth='1.6'
+      strokeLinejoin='round'
+    />
+  </svg>
+)
+
+/** 迷你拍立得角标：这页有图 */
+const PhotoTab = () => (
+  <span className='j-photo-tab' aria-hidden='true'>
+    <svg viewBox='0 0 24 18' width='26' height='19'>
+      <path
+        d='M2.4 13.4c3-.8 4.4-5.4 7.2-5.4s3.6 5.4 7.2 5.4 2.8-2.2 2.8-2.2M16.6 5a2.2 2.2 0 11.1 4.3A2.2 2.2 0 0116.6 5z'
+        fill='none'
+        stroke='currentColor'
+        strokeWidth='1.5'
+        strokeLinecap='round'
+      />
+    </svg>
+  </span>
+)
+
 /* ------------------------------------------------------------------ *
  * 通用纸片
  * ------------------------------------------------------------------ */
-
 /** 一张胶带纸条式的文章条目；整块可点，标签仍各自可点 */
-function PostSlip({ post, featured = false, compact = false }) {
+function PostSlip({ post, compact = false, hideDate = false }) {
   if (!post) return null
   const tags = post?.tags?.slice(0, 3) || []
+  const marks = stateMarks(post)
+  const has = key => marks.some(mark => mark.key === key)
+  const featured = has('featured')
+
   return (
-    <article className='j-slip j-tape-single block px-5 py-4 md:px-6 md:py-5'>
+    <article
+      className={`j-slip j-tape-single block px-5 py-4 md:px-6 md:py-5 ${
+        featured ? 'j-featured' : ''
+      } ${has('receipt') ? 'j-receipt' : ''} ${paperAge(dayKey(postDate(post)))}`}
+    >
+      {has('receipt') && <span className='j-teeth' aria-hidden='true' />}
+      {has('revised') && <span className='j-tape-bit' aria-hidden='true' />}
+      {has('pinned') && (
+        <span className='j-pin'>
+          <PinDoodle />
+        </span>
+      )}
+      {has('locked') ? <FoldDoodle /> : has('photo') && <PhotoTab />}
+
       <h2 className='j-hand flex items-start gap-2 text-[21px] md:text-[23px]'>
         {featured && <Star />}
         <SmartLink href={postHref(post)} className='j-stretch'>
@@ -233,7 +410,16 @@ function PostSlip({ post, featured = false, compact = false }) {
       )}
 
       <div className='relative z-[2] mt-3 flex flex-wrap items-center gap-2'>
-        <span className='j-stamp-date j-stamp'>{stampMD(post)}</span>
+        {!hideDate && (
+          <span className='j-stamp-date j-stamp'>{stampMD(post)}</span>
+        )}
+        {marks
+          .filter(mark => mark.key !== 'locked')
+          .map(mark => (
+            <span key={mark.key} className='j-mark j-stamp'>
+              {mark.label}
+            </span>
+          ))}
         {isLocked(post) && (
           <span className='j-hand j-red flex items-center gap-1 text-[15px]'>
             <LockDoodle />
@@ -257,13 +443,53 @@ function PostSlip({ post, featured = false, compact = false }) {
             {tag}
           </SmartLink>
         ))}
-        {featured && (
-          <span className='j-stamp j-red' aria-hidden='false'>
-            {j('JOURNAL_FEATURED_LABEL', '精选')}
-          </span>
-        )}
       </div>
     </article>
+  )
+}
+
+/** 一摊 = 一张纸；同天多篇摊成跨页，中间一道装订中缝 */
+function DaySpread({ group, head, max = 0, render }) {
+  const { key, posts } = group
+  const capped = max > 0 ? posts.slice(0, max) : posts
+  const rest = posts.length - capped.length
+  const half = Math.ceil(capped.length / 2)
+
+  const page = items => (
+    <div className='j-day-page j-tilt-group'>{items.map(render)}</div>
+  )
+
+  return (
+    <section
+      id={`day-${key}`}
+      className={`j-day scroll-mt-24 ${paperAge(key)}`}
+    >
+      <header className='j-day-head'>
+        <span className='j-stamp-date j-day-stamp'>
+          {mdOf(key) || '未日期'}
+        </span>
+        {head}
+        {posts.length > 1 && (
+          <span className='j-day-count j-stamp'>{posts.length} 张</span>
+        )}
+      </header>
+
+      {capped.length > 1 ? (
+        <div className='j-day-spread'>
+          {page(capped.slice(0, half))}
+          <span className='j-spine' aria-hidden='true' />
+          {page(capped.slice(half))}
+        </div>
+      ) : (
+        page(capped)
+      )}
+
+      {rest > 0 && (
+        <a className='j-day-more j-print' href={`/archive#day-${key}`}>
+          {`${j('JOURNAL_DAY_MORE', '这天还有')} ${rest} 张 →`}
+        </a>
+      )}
+    </section>
   )
 }
 
@@ -506,6 +732,12 @@ function LayoutIndex(props) {
   const count = Number(j('JOURNAL_INDEX_POST_COUNT', 5))
   const recent = posts.slice(0, count)
   const noteText = j('JOURNAL_RECENT_NOTE', '最近在写这些——')
+  const groupDays = j('JOURNAL_DAY_SPREAD', true)
+  const maxPerDay = Number(j('JOURNAL_DAY_SPREAD_MAX', 3))
+
+  const renderSlip = post => (
+    <PostSlip key={post?.id || post?.slug} post={post} hideDate={groupDays} />
+  )
 
   return (
     <main className='j-shell'>
@@ -514,15 +746,32 @@ function LayoutIndex(props) {
           <Masthead />
           <section className='j-section' aria-label={noteText}>
             <BallpointNote>{noteText}</BallpointNote>
-            <div className='j-tilt-group mt-6 grid gap-7'>
-              {recent.map((post, index) => (
-                <PostSlip
-                  key={post?.id || post?.slug || index}
-                  post={post}
-                  featured={index === 0}
-                />
-              ))}
-            </div>
+            {groupDays ? (
+              <div className='j-days mt-6'>
+                {dayGroups(recent).map(group => (
+                  <DaySpread
+                    key={group.key}
+                    group={group}
+                    max={maxPerDay}
+                    render={renderSlip}
+                    head={
+                      <>
+                        <span className='j-stamp j-soft'>
+                          {(group.key || '').slice(0, 4)}
+                        </span>
+                        <span className='j-day-week j-hand j-blue'>
+                          {weekOf(group.key)}
+                        </span>
+                      </>
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className='j-tilt-group mt-6 grid gap-7'>
+                {recent.map(renderSlip)}
+              </div>
+            )}
           </section>
         </div>
 
@@ -643,7 +892,7 @@ function ListHeader({ title, meta, back = true }) {
   )
 }
 
-function PostSlipGrid({ posts = [], empty }) {
+function PostSlipGrid({ posts = [], empty, className = '' }) {
   if (!posts.length) {
     return (
       <div className='j-shell'>
@@ -652,10 +901,14 @@ function PostSlipGrid({ posts = [], empty }) {
     )
   }
   return (
-    <div className='j-tilt-group mt-8 grid gap-7 md:grid-cols-2'>
-      {posts.map((post, i) => (
-        <PostSlip key={post?.id || i} post={post} featured={i === 0} />
-      ))}
+    <div className='j-shell'>
+      <div
+        className={`j-tilt-group mt-8 grid gap-7 md:grid-cols-2 ${className}`}
+      >
+        {posts.map((post, i) => (
+          <PostSlip key={post?.id || i} post={post} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -745,33 +998,34 @@ function LayoutSearch(props) {
   return (
     <main id='posts-wrapper'>
       <div className='j-shell pt-10'>
-        <form
-          onSubmit={onSubmit}
-          className='j-slip j-tape-single flex items-center gap-3 px-4 py-3'
-        >
-          <Magnifier />
-          <input
-            className='j-field'
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            placeholder={j('JOURNAL_SEARCH_PLACEHOLDER', '写点什么进去找找')}
-            aria-label={locale?.NAV?.SEARCH || '搜索'}
-          />
-          <button type='submit' className='j-btn j-btn-red j-hand shrink-0'>
-            {locale?.NAV?.SEARCH || '搜索'}
-          </button>
-        </form>
-
-        <div className='j-stamp j-soft mt-4'>
-          {keyword
-            ? `找到 ${posts.length} 条结果 · 关键词「${keyword}」`
-            : '还没有输入关键词'}
+        <div className='j-drawer'>
+          <form
+            onSubmit={onSubmit}
+            className='j-slip j-tape-single flex items-center gap-3 px-4 py-3'
+          >
+            <Magnifier />
+            <input
+              className='j-field'
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              placeholder={j('JOURNAL_SEARCH_PLACEHOLDER', '写点什么进去找找')}
+              aria-label={locale?.NAV?.SEARCH || '搜索'}
+            />
+            <button type='submit' className='j-btn j-btn-red j-hand shrink-0'>
+              {locale?.NAV?.SEARCH || '搜索'}
+            </button>
+            <span className='j-drawer-handle' aria-hidden='true' />
+            <span className='j-drawer-label j-stamp'>
+              {keyword ? `「${keyword}」· ${posts.length} 条` : '还没写关键词'}
+            </span>
+          </form>
         </div>
       </div>
 
       <PostSlipGrid
         posts={posts}
         empty={j('JOURNAL_SEARCH_EMPTY', '没找到？试试更短的词')}
+        className='j-drawer-out'
       />
 
       <div className='j-shell j-tilt-slow mt-10 grid gap-7 md:grid-cols-2'>
@@ -823,11 +1077,14 @@ function ArticleToc({ post }) {
   if (!post?.toc?.length || !j('JOURNAL_SHOW_TOC', true)) return null
 
   return (
-    <aside className='sticky top-8 hidden max-h-[calc(100vh-4rem)] overflow-y-auto pr-2 lg:block lg:pt-12'>
-      <div className='j-stamp j-red'>
+    <aside className='sticky top-8 hidden max-h-[calc(100vh-4rem)] overflow-y-auto py-12 pl-3 pr-2 lg:block'>
+      <div className='j-stamp j-red pl-4'>
         {j('JOURNAL_TOC_TITLE', '这一页的目录')}
       </div>
-      <nav className='j-tilt-group mt-3 space-y-1.5'>
+      <nav
+        className='j-tabs mt-4'
+        aria-label={j('JOURNAL_TOC_TITLE', '这一页的目录')}
+      >
         {post.toc.map(item => {
           const id = uuidToId(item.id)
           const current = id === active
@@ -835,13 +1092,12 @@ function ArticleToc({ post }) {
             <a
               key={id}
               href={`#${id}`}
-              className={`j-hand block text-[16px] leading-7 ${
-                current ? 'j-highlight j-blue' : 'j-soft'
-              }`}
-              style={{ marginLeft: (item.indentLevel || 0) * 12 }}
+              className={`j-tab ${current ? 'j-tab-current' : ''}`}
+              style={{ '--j-ind': `${(item.indentLevel || 0) * 12}px` }}
               aria-current={current ? 'location' : undefined}
             >
-              {item.text}
+              <span className='j-tab-text'>{item.text}</span>
+              {current && <HandRule red className='j-tab-slash' />}
             </a>
           )
         })}
@@ -852,29 +1108,38 @@ function ArticleToc({ post }) {
 
 function ArticleAround({ prev, next }) {
   if (!prev && !next) return null
+  const both = !!(prev && next)
+
+  const card = (post, label, isPrev) => (
+    <SmartLink href={postHref(post)} className='j-slip block px-4 py-4'>
+      <span className={`j-around-card ${isPrev ? '' : 'j-around-card-right'}`}>
+        <span className='j-stamp j-soft'>{label}</span>
+        <span className='j-hand flex items-center gap-3 text-[18px]'>
+          {isPrev && (
+            <span className='inline-block shrink-0 rotate-180'>
+              <ArrowRight />
+            </span>
+          )}
+          <span className='min-w-0'>{post.title}</span>
+          {!isPrev && (
+            <span className='inline-block shrink-0'>
+              <ArrowRight />
+            </span>
+          )}
+        </span>
+      </span>
+    </SmartLink>
+  )
+
   return (
-    <section className='j-tilt-slow mt-12 grid gap-7 md:grid-cols-2'>
-      {prev && (
-        <SmartLink
-          href={postHref(prev)}
-          className='j-slip j-hand flex items-center gap-3 px-4 py-4 text-[18px]'
-        >
-          <span className='inline-block rotate-180'>
-            <ArrowRight />
-          </span>
-          {prev.title}
-        </SmartLink>
-      )}
-      {next && (
-        <SmartLink
-          href={postHref(next)}
-          className='j-slip j-slip-alt j-hand flex items-center justify-end gap-3 px-4 py-4 text-right text-[18px]'
-        >
-          {next.title}
-          <ArrowRight />
-        </SmartLink>
-      )}
-    </section>
+    <nav
+      className={`j-around j-tilt-group mt-12 ${both ? 'j-around-both' : ''}`}
+      aria-label='上一篇与下一篇'
+    >
+      {prev && card(prev, '上一篇', true)}
+      {both && <ThreadLink />}
+      {next && card(next, '下一篇', false)}
+    </nav>
   )
 }
 
@@ -999,7 +1264,11 @@ function LayoutSlug(props) {
     <main className='j-shell grid grid-cols-[minmax(0,1fr)] gap-8 py-10 lg:grid-cols-[220px_minmax(0,1fr)]'>
       <ArticleToc post={post} />
 
-      <article className='j-slip j-tape px-5 py-8 md:px-10 md:py-12'>
+      <article
+        className={`j-slip j-tape px-5 py-8 md:px-10 md:py-12 ${paperAge(
+          dayKey(postDate(post))
+        )}`}
+      >
         <header className='mb-8'>
           <div className='flex flex-wrap items-center gap-3'>
             <span className='j-stamp-date j-stamp'>{stampMD(post)}</span>
@@ -1105,38 +1374,53 @@ function LayoutArchive(props) {
             <section
               key={year}
               id={`archive-${year}`}
-              className='relative mb-10 scroll-mt-24'
+              className='relative mb-12 scroll-mt-24'
             >
               <span className='j-stamp-date j-stamp text-[15px]'>{year}</span>
+              <span className='j-stamp j-soft ml-2 text-[13px]'>
+                {items.length} 张
+              </span>
 
-              <ul className='j-tilt-group mt-4 space-y-5'>
-                {items.map((post, i) => (
-                  <li key={post?.id || i} className='relative'>
-                    <span className='absolute -left-[26px] top-3 h-2.5 w-2.5 rounded-[40%_60%_50%_50%] border-2 border-[var(--ink)] bg-[var(--slip)]' />
-                    <div className='j-slip j-tape-single flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3'>
-                      <h2 className='j-hand order-1 text-[19px] md:order-none md:flex-1'>
-                        <SmartLink href={postHref(post)} className='j-stretch'>
-                          {post.title}
-                        </SmartLink>
-                      </h2>
-                      <span className='j-stamp j-soft md:ml-auto'>
-                        {stampMD(post)}
-                      </span>
-                      <span className='j-hand j-blue text-[15px]'>
-                        {monthName(post)}
-                      </span>
-                      {post?.tags?.[0] && (
-                        <SmartLink
-                          href={`/tag/${encodeURIComponent(post.tags[0])}`}
-                          className='j-pill j-pill-yellow relative z-[2]'
+              <div className='j-year-stack'>
+                <span className='j-staple j-staple-a' aria-hidden='true' />
+                <span className='j-staple j-staple-b' aria-hidden='true' />
+                <div className='j-days j-days-axis mt-5'>
+                  {dayGroups(items).map(group => (
+                    <DaySpread
+                      key={group.key}
+                      group={group}
+                      head={
+                        <span className='j-day-week j-hand j-blue'>
+                          {monthOf(group.key)}
+                        </span>
+                      }
+                      render={post => (
+                        <div
+                          key={post?.id || post?.slug}
+                          className='j-slip j-tape-single flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3'
                         >
-                          {post.tags[0]}
-                        </SmartLink>
+                          <h2 className='j-hand flex-1 text-[19px]'>
+                            <SmartLink
+                              href={postHref(post)}
+                              className='j-stretch'
+                            >
+                              {post.title}
+                            </SmartLink>
+                          </h2>
+                          {post?.tags?.[0] && (
+                            <SmartLink
+                              href={`/tag/${encodeURIComponent(post.tags[0])}`}
+                              className='j-pill j-pill-yellow relative z-[2]'
+                            >
+                              {post.tags[0]}
+                            </SmartLink>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    />
+                  ))}
+                </div>
+              </div>
             </section>
           ))}
         </div>

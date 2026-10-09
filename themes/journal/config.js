@@ -10,6 +10,25 @@ const CONFIG = {
   JOURNAL_INDEX_POST_COUNT: 5,
   JOURNAL_FEATURED_LABEL: '精选',
 
+  // 状态编码（胶带/图钉是语法，规格见 design-system/journal/MASTER.md「状态编码」节）
+  JOURNAL_STATE_ENCODING: true,
+  JOURNAL_FEATURED_TAG:
+    process.env.NEXT_PUBLIC_JOURNAL_FEATURED_TAG || 'featured',
+  // 发表后隔几天再改才算「修订」：Notion 的 last_edited_time 动一下标点都会变
+  JOURNAL_REVISED_DAYS: 7,
+
+  // 一天一摊（同一天多篇合成一张跨页，规格见 MASTER「一天一摊」节）
+  JOURNAL_DAY_SPREAD: true,
+  // 封顶只作用于首页；归档是全集，不折叠
+  JOURNAL_DAY_SPREAD_MAX: 3,
+  JOURNAL_DAY_MORE: '这天还有',
+
+  // 纸会老（材质层：只淡墨不换色，规格见 MASTER「纸会老」节）
+  JOURNAL_PAPER_AGE: true,
+  // 三档：≤180 天不加类、≤730 天淡邮戳、更久再淡墨边
+  JOURNAL_AGE_MID_DAYS: 180,
+  JOURNAL_AGE_OLD_DAYS: 730,
+
   // 导航（胶带纸条）
   JOURNAL_NAV_ARCHIVE: true,
   JOURNAL_NAV_CATEGORY: true,
