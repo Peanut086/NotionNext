@@ -346,6 +346,25 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 | 同步块 | 虚线手绘框 + 等宽标签"同步块" + 手绘刷新箭头 |
 | Bookmark | 胶带卡片：单字母方块 + 手写站名 + 一行 Print 描述 + 等宽 URL + 手绘右箭头 |
 
+### 图片：拍立得的宽度上限必须是相对值（2026-10-09 线上实测）
+
+规格表里「图片 = 拍立得」落地时写成 `#theme-journal .notion-asset-wrapper-image { max-width: 560px }`，
+把 react-notion-x 那条 `max-width: 100%` 顶掉了（同元素上带 ID 的规则特异度更高）。结果是这张纸只有
+一个**绝对**上限，和栏宽彻底脱钩：
+
+- 桌面 692px 正文栏：560 ≤ 692，看不出问题
+- 手机 390 视口：正文框实测 314px，拍立得仍按 560px 排（块内层是 `<div style="width:1200px">`，
+  被自己的 `max-width:100%` 收到 542），实测 `figure` 落在 `x=-85 / w=560`，左右各溢出 85px，
+  被 `#notion-article` 的 `overflow-hidden` 剪掉 —— 照片两头直接消失，而且不产生横向滚动条，所以纯看滚动是发现不了的
+- 再叠上「目录缺席时的塌栏」那一条，同一篇文章在桌面上溢出得更狠
+
+改成 `max-width: min(560px, 100%)`：**上限仍然是「不许贴满整页宽」的 560，但永远不越过纸的右边界**。
+`100%` 的基准是 `.notion-page-content` 的内容盒，正是纸的可用宽。
+
+**推论（凡是用 `#theme-journal` 覆盖上游 `max-width: 100%` 的地方都适用）**：绝对值只能作为 `min()`
+的一项，不能顶替 `100%`。同理，给 Notion 块加外框时若顺手写了 `border-bottom-width`、`padding`，
+要意识到这些都会从可用宽里扣掉，照片的实际显示宽是 `min(上限, 栏宽) - 边框 - 内边距`。
+
 ## plog 照片墙（新增页面）
 
 系统支持扩展：在 `conf/layout-map.config.js` 的 `LAYOUT_MAPPINGS` 增加 `'/plog': 'LayoutPlog'`，并新建 `pages/plog/index.js`；数据来源沿用 Notion 的 `type === 'PAGE'` 集合（与 plog 主题同源）。

@@ -1219,7 +1219,9 @@ export const Style = () => {
         border-radius: 3px;
         box-shadow: var(--shadow);
         padding: 8px;
-        max-width: 560px;
+        /* 上限 560 不许贴满整页宽，但更不能越过纸的右边界：
+           写死 560 会顶掉上游的 max-width:100%，窄栏时照片两头被剪掉 */
+        max-width: min(560px, 100%);
       }
       #theme-journal .notion-asset-caption {
         font-family: var(--font-hand);
