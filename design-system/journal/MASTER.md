@@ -497,6 +497,116 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 
 `page.emulateMediaType('print')` + 视口 **673×950**（A4 减 16mm 页边 ≈178mm @96dpi，用真实打印宽度才能把 `md:`/`lg:` 断点一起验到），再 `page.pdf({ format: 'A4', printBackground: false, margin: 16mm })` 对页数。
 回归护栏在 `__tests__/themes/journalPrintStyles.test.js`（9 条，含上面三个坑与"不许出现 `print-color-adjust:`""字号只许 9pt"两条负向断言）。
+## 同语言 OG 卡（D2 · 2026-10-10 落地，**未接线**）
+
+**一句话规格**：分享卡是一张**贴在纸上的手账切片**——1200×630、纸底墨框、日期邮戳，把文章标题**按文章本身的语言原样**画进图片里。它是渲染产物而不是设计稿导出，所以本节的下半部分全是 `next/og` 的能力边界；审美上要跟手账语法一致，工艺上要跟 satori 一致，两者冲突时**工艺赢**（因为审美可以不调那一笔，工艺调不了）。
+
+### 为什么要做：现状给爬虫的是假声明
+
+- `components/SEO.js:182-184`：`og:image` 是 `meta.image || '/bg_image.jpg'`（`SEO.js:65`），而 `og:image:width/height` **写死 1200/630**。文章封面是 Notion 横图、`bg_image.jpg` 是站内旧背景图，两者都与 1200×630 无关 —— 尺寸在说谎，社交平台按假比例裁切就出现"封面被切一半"。
+- 分享出去的视觉与 journal 的手账语法**零关系**：一张 Notion 封面 + 浏览器默认标题栏，认不出这是本站。
+
+### 已实测的事实（规格依据，不是推测）
+
+| 项 | 实测结果 | 对规格的影响 |
+|---|---|---|
+| 字体格式 | satori 对现有 `LXGWWenKai-Medium.subset.woff2` 报 `Unsupported OpenType signature wOF2`；WOFF / TTF 正常 | **不能复用任何 `.woff2` 资产**，必须另出字体件 |
+| 字体体积 | 同一子集（7289 字）TTF 3,414,312 B → WOFF 2,109,888 B | 卡片字体是**第二份中文字体**，不是"把现有的换名" |
+| 单卡耗时 | 3.4MB TTF 162ms / 2.11MB WOFF 120ms；同字体二次渲染 57ms | 进程内字体字节可复用，首次不免费 |
+| 并发 | 30 并发总 1271ms，堆 17.8MB → 104.9MB | 线上机 V8 堆 1.9G，**在预算内**，但见下面红线 |
+| 产出格式 | `contentType` 传 jpeg/webp 仍返回 `content-type: image/png`、魔数 `89504e47`、字节一致 | **只能 PNG**，别指望用 jpeg 压体积；单卡 31-36KB |
+| CSS 能力 | 四值歪斜圆角、`radius-a/radius-b` 斜杠语法、`rotate`、无模糊硬阴影、线性渐变、荧光笔渐变、虚线框、单/双下划线 12 组 A/B 对比 md5 **全部互不相同且不同于对照** | journal 的签名属性在卡片上**都成立**，不需要为 satori 简化视觉语言 |
+
+### 版式（1200×630）
+
+沿用 MASTER 既有语法，不新增视觉元素：
+
+- 纸底 `--paper #FDFBF7`、墨框 `--ink`、硬阴影 `5px 5px 0`（已实测可画）
+- **三色只许出现一枚**，且必须带来源 —— 「状态编码」的规则延续到卡片上：随机装饰在网页上只是吵，在图片里会被读成"设计稿模板"
+- 日期邮戳沿用「一天一摊」的 stamp 语法。⚠️ 拉丁字形（Amatic/Kalam/Cabin/JetBrains Mono）的自托管产物**也全是 WOFF2**，上卡同样要另出 WOFF/TTF；源 TTF 在子集化时已丢弃，需重新取
+- **卡片不放正文摘要**：`meta.description` 是 SEO 句、不是手账语气，写上去只会像模板。卡面信息限于：站点名、标题、日期、状态标记（至多一枚）、类别
+- 标题宽度是卡片唯一的硬风险：satori **没有文字测量 API**，截断只能按字符数估算，且中英文混排的字符数与视觉宽度关系不稳定 → 规格必须写"按字符数分档 + 最多 N 行 + 溢出省略号"，并把"标题超长"当成必验用例
+
+### 路由与数据契约
+
+- `pages/api/og.js`（Pages Router + Node runtime）。生产是 standalone SSR（Dockerfile `CMD ["node","server.js"]`），API 路由可用；仓库已有 `pages/api/{rss,revalidate,notion-comments}.js` 先例
+- **运行期不取 Notion**：全部入参走 query（`?title=&date=&category=&state=&locale=`）。理由不是省时间，是**不让爬虫的抓取路径依赖 Notion API** —— Notion 限流或抖一下，分享卡就整片 500，而标题在 `getStaticProps` 阶段早就拿到了，没有理由不在服务端拼进 URL
+- `Cache-Control: public, max-age=31536000, immutable` —— 参数在 URL 上，标题一改 URL 就变，**不需要失效策略**；这也是"运行期不取数据"的连带收益
+- 字体加载一次进模块级变量（或 `globalThis`），实测同进程二次渲染 57ms 依赖的就是这一点
+- 入参必须设上限并做转义（参数直接进 SVG/HTML 模板，标题里带 `<` 是可能的）
+
+### 兜底（三条，缺一不可）
+
+1. **route 抛错 / 字体缺失** → `og:image` 回落现状值 `meta.image || '/bg_image.jpg'`；SEO 组件不许因为卡片失败而整块不渲染
+2. **`EXPORT=true` 的静态导出路会 404**：`next export` 不含 `pages/api`（`next.config.js:219/254/266/325` 都以 `process.env.EXPORT` 关掉动态能力为同证）。静态模式**不许**把 `og:image` 指向 `/api/og`，必须整体退回 1
+3. **顺手修那条假声明**：走 OG 卡时才写 `og:image:width/height='1200'/'630'`（此时它是真的）；兜底时**省略**这两个 meta，而不是继续写死。注意这属共享组件 `components/SEO.js`，改它会波及所有主题 → 见待拍板第 4 条
+
+### 「同语言」的确切含义
+
+- 标题**原样**：不翻译、不转写。`og:locale` 已有正确来源（`SEO.js:71-73`：`router?.locale || LANG`，导出模式下 `router.locale` 为 undefined 时仍能回落），卡片只是不给它额外制造中英混排
+- 卡面**固定 chrome 文字**（站点名、状态标）取本站语言字典（`lang/`），只有 `zh-CN`/`en-US` 两档；**不新建 i18n 面**
+- 中文落 LXGW 子集、拉丁落自托管拉丁子集，两者都要 WOFF/TTF 版。⚠️ **卡片特有的新风险**：子集覆盖不到的字在网页上有 `font-display: swap` 兜底，在图片里就是**豆腐块**，且发出去之后无法补救（PNG 已经缓存）。→ 规格要求卡片字体至少覆盖 GB2312 一级，验收必须真渲一篇含生僻字的标题，而不是只看"能出图"
+
+### 性能红线（对着线上机 2 核 / 1.9G 写的）
+
+- **不许**把文章封面图取回来合成进卡片 —— 大图解码才是堆的杀手，中文字体一次 100MB 量级是可控的，封面图不是
+- 卡片必须**无状态**（除字体缓存），不再叠一层 LRU：字体已经常驻，再缓存 PNG 只会把堆压力变成不可预测
+- 单卡 PNG 实测 74-117KB（含稿纸格纹与整幅白纸条）可接受；不为体积牺牲视觉（PNG 无选项）
+
+### 拍板结果（2026-10-10，四条已定）
+
+1. **卡片字体格式 = WOFF**（2.11MB；TTF 3.41MB 落选，WOFF 更小且实测更快）
+2. **卡面标题走 Print 层（印刷体）**，不走 Hand 层 —— 稳、不会因缺字出豆腐块
+3. **状态标记上卡**（至多一枚，三色规则延续：必须有来源，不许随机装饰）
+4. **不动 `components/SEO.js`** —— 假声明 `og:image:width/height` 保持原样
+
+**⚠️ 第 4 条的连带后果（查证过，不是猜测）**：全站只有 `components/SEO.js` 决定 `og:image` —— `SEO` 组件在 `pages/_app.js:90` 渲染一次，图取 `getSEOMeta()` 里那段 `switch (router.route)` 的 `siteInfo?.pageCover` / 各 route 分支（`SEO.js:381+`），再落到 `image = getAbsoluteImageUrl(meta.image || '/bg_image.jpg', LINK)`（`SEO.js:65`）。**主题侧没有任何 head 注入点**（仓库里不存在 `_head.js`/`CUSTOM_HEAD` 之类的钩子），所以「不动 SEO.js」= 卡片渲染得出来但**没有任何页面会引用它**。
+可行的三条路，实现时必须选一条并记在这里：
+- **A 只做路由**：卡片靠直接 URL 使用（手动分享/未来的 OG 预览页），`og:image` 保持现状
+- **B 主题内加第二枚 `og:image`**（`next/head` 不去重，会与 SEO.js 那枚**并存**）：谁生效取决于 parser，且 HTML 里出现两枚同名 property 是脏状态 —— **要先在真实渲染里量出先后顺序才可选**
+- **C 只改 SEO.js 的那一行**（把 `image` 的来源开一个配置口子）：最小、可回滚，但违背第 4 条
+
+**⚠️ 第 2 条的连带成本（Print 层今天没有任何本地资产）**：手写层有中文字体（`LXGWWenKai-Medium.subset.woff2`），Print 层的中文 `'Noto Sans SC'` **完全来自 Notion 设置项 `FONT_URL` 的 CDN**，仓库里一个字节都没有；拉丁 Print 层 Cabin 也只有 WOFF2（satori 不吃）。所以选 Print 层要多造两件 WOFF 资产：
+- `public/fonts/NotoSansSC-Regular-OG.woff`（从 google/fonts 的 `NotoSansSC[wght].ttf` 用 varLib.instancer 取 400 档，再按 LXGW 同一字符集子集化）
+- `public/fonts/Cabin-Regular-OG.woff` / `Cabin-SemiBold-OG.woff`（由现有 woff2 反解再封 WOFF）
+
+顺带的收益值得记下：中文无衬线一旦自托管，**网页侧的 Print 层也能脱离 `FONT_URL`** —— 那笔唯一剩下的配置债就有了代码侧的退路（Noto SC 全量 CDN 会展开十几个 gstatic 分片，是比拉丁迁移更大的一笔流量）。但**这是另一件事，不并入 D2**。
+
+### 原待拍板（已由上面取代，保留问题本身便于回看）
+
+1. **卡片字体格式：WOFF（2.11MB）还是 TTF（3.41MB）？** 两者 satori 都吃；WOFF 小 38%、实测还略快（120ms vs 162ms），倾向 **WOFF**
+2. **标题走 Hand 层（手写体）还是 Print 层（印刷体）？** Hand 层更"一眼不像模板"，但手写中文子集一旦缺字就是豆腐块且无法降级；Print 层稳但更接近"又一个卡片模板"
+3. **状态标记上不上卡？** `featured`/`plog` 标签站长还没打，上线即不可见（与 plog 同类），但语法要一次定清楚
+4. **修不修 `og:image:width/height` 的假声明？** 该修，但它在共享组件 `components/SEO.js` 上，会影响其它主题 —— 需要你确认动共享组件
+
+### 验收方式
+
+- 路由：`curl -o card.png` 断言 200 + 魔数 `89504e47` + `content-type: image/png` + `Cache-Control: …, immutable`（已跑过，见下）
+- 视觉：拿本站真实文章（含 `/article/adb-install` 这种中英混排 + 全角标点）各渲一张，与 `vibe_images/journal-*` 的纸感逐项对照；再加一条**超长标题**与一条**含生僻字**的构造用例
+- 兜底：把字体路径改错、把 `EXPORT=true` 各跑一次，断言 `og:image` 退回现状值且**没有**假的 width/height
+- 回归护栏：新建 `__tests__/themes/journalOgCard.test.js`（卡片字体非 woff2 且文件真实存在 + 断言不含 `og:image:width` 于兜底分支），按老规矩拿 HEAD 版反证它会红
+
+
+### 落地记录（2026-10-10）
+
+产物：`themes/journal/og-card.js`（卡面组件）+ `pages/api/og.js`（路由）+ 四件 WOFF 资产（`NotoSansSC-SemiBold` 1.43MB、`Cabin-Regular`/`Cabin-SemiBold` 各 24-25KB、`JetBrainsMono-Medium` 29KB，共 1.51MB）+ `OFL-NotoSansSC.txt` + 护栏 `__tests__/themes/journalOgCard.test.js`（9 条）。
+**接线状态：未接**。按拍板第 4 条不动 `components/SEO.js`，所以走的是「A 只做路由」—— 卡片靠直接 URL 使用，`og:image` 保持现状。
+
+**最值钱的一条：satori 的 display 规则比它的报错文案严格得多。**
+报错写的是「more than one child node」，实际**一个 `<svg>` 子节点就会抛** —— `Pin`、`Fold`、手绘横线三个包着 svg 的 div 全部中招。而报错信息里**不含是哪个元素**，读代码也读不出来。有效的定位法是把组件当纯函数调用（`OgCard(props)` 直接拿到元素树），取出纸条的 children 逐个单独渲染做二分，一次就能指到具体节点。**推论：卡面树里每一个包着元素的 div 都要显式写 `display`，别指望"只有一个孩子"能免检。**
+
+其它实测口径（草案里没有的）：
+
+- `display: inline-block` 直接抛错，允许值只有 `flex | block | none | -webkit-box`
+- **可以画**：`clip-path: polygon()`（和纸胶带锯齿）、内联 `<svg>`（`ellipse` + `strokeDasharray` 画邮戳双环）、`data:image/svg+xml` 背景（撕线墨点）、`repeating-linear-gradient`（稿纸格）
+- **不能画**：`filter` / `feTurbulence` —— 网页的纸纹靠 SVG 湍流滤镜，卡片上不存在，所以卡面的地子换成**稿纸格纹**（`--grid` 同色，横竖各 32px 一道）。这是卡面对网页的一次**有意偏离**，不是降级
+- 卡面**只出一档字重 600**：卡片没有正文，全是 display 与标签，为 400 再养一份 1.4MB 资产不值。中文 Print 层此前**本地零资产**（`'Noto Sans SC'` 完全来自 Notion 的 `FONT_URL` CDN），所以这份是从 `google/fonts` 的 `NotoSansSC[wght].ttf` 用 `varLib.instancer` 取 600 档再子集化来的
+- 四件卡片资产的字符集**与手写层完全同一份 7289 码位**（从已上线的 `LXGWWenKai-Medium.subset.woff2` 反读 cmap），保证两族覆盖一致；生成命令：`pyftsubset --text-file=<同一码位> --flavor=woff --name-IDs=0,1,2,3,13,14 --layout-features=*`，拉丁那三件由现有 woff2 `flavor=None` 反解再封 WOFF
+- **邮戳位置改判**：草案放右上，实现时撞开 —— 右上角是状态编码的地盘（加密折角 > 带图拍立得，MASTER 写死的一格），邮戳压上去两者重叠。定版：**邮戳在右下**（`bottom:14; right:58`，正好压在硬阴影上，像信封上的销票戳），右上角永远留给状态标
+- **日期只写一遍**：邮戳已含 `MM.DD` + 年 + 星期，页脚再排一次 `2024-06-01` 是重复 —— 与「一天一摊」里 `hideDate` 同源的那条教训
+- **同语言的实证**：`locale=en-US` 时 chrome 全英文（`JS King` / `Frontend` / `Photo` / `Sat`）、标题仍是原样中文。这就是「同语言」在卡面上的确切含义
+- **护栏的反证**：把 `STATE_LABELS` 里的 `pinned` 改名 → 「state vocabulary does not drift」立刻变红，证明它真的在盯网页端 `stateMarks` 与卡面词表的同步
+- **jest 里渲染不了 satori**：`ImageResponse` 内部走 dynamic import，jest 的 vm 会抛 `A dynamic import callback was invoked without --experimental-vm-modules`。所以护栏只能是**源码级静态断言**，像素验收必须走 dev server（或本地 babel 直挂组件的临时脚本）
 
 ---
 
