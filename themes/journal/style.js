@@ -1428,6 +1428,229 @@ export const Style = () => {
           transform: rotate(var(--r, 0deg)) translateX(-6px);
         }
       }
+      /* ---------- 8. 打印 ---------- *
+         纸上只剩线：歪斜墨框、邮戳描边、铅笔虚线、装订订书钉。
+         凡靠 background / box-shadow 成立的材质（纸纹、胶带、硬阴影、方格稿纸、荧光笔）
+         在这里必须主动换成线或显式清掉——浏览器默认就不印背景，
+         留着只会变成占位的空块（胶带）或读不出的浅灰（表格格线） */
+      @media print {
+        /* 不写 size：写死 A4 会让 Letter 纸和用户自定义的"另存为 PDF"尺寸一起失效 */
+        @page {
+          margin: 16mm;
+        }
+
+        #theme-journal,
+        #theme-journal.j-night {
+          /* 夜间态在打印下强制回浅色：牛皮纸底 = 整页灰底 */
+          --paper: #ffffff;
+          --slip: #ffffff;
+          --ink: #1a1a1a;
+          --ink-soft: #4d4d4d;
+          --j-edge: var(--ink);
+          --red: #c81e1e;
+          --blue: #1e3f73;
+          --yellow: transparent;
+          --tape: transparent;
+          --grid: rgba(26, 26, 26, 0.55);
+          --shadow: none;
+          --shadow-hover: none;
+
+          background: #ffffff;
+          color: var(--ink);
+          min-height: 0;
+        }
+
+        /* 字号一律不动。17px 落在 A4 上就是 12.75pt，手写标题 28–34px 是 21–25pt，
+           本来就在合理区间；而 #theme-journal .j-hand 的特异度会压掉组件上那些
+           Tailwind 绝对值（text-[28px]），为打印重设字号等于全站字号失控 */
+
+        /* 屏幕才有的：导航、页脚、进度、目录、分享、评论、上下篇、表单、复制 */
+        #theme-journal header.j-shell,
+        #theme-journal footer.j-shell,
+        #theme-journal .j-progress,
+        #theme-journal .j-tabs,
+        #theme-journal .j-share,
+        #theme-journal .j-comments,
+        #theme-journal .j-around,
+        #theme-journal .j-btn,
+        #theme-journal .j-field,
+        #theme-journal .j-drawer-handle,
+        #theme-journal .j-drawer-label,
+        #theme-journal .notion-code-copy,
+        #theme-journal .notion-simple-table-wrapper > button {
+          display: none;
+        }
+
+        /* 胶带与状态装饰：底色不印，留下的只是占位 */
+        #theme-journal .j-tape::before,
+        #theme-journal .j-tape::after,
+        #theme-journal .j-tape-single::before,
+        #theme-journal .j-tape-bit,
+        #theme-journal .j-pin,
+        #theme-journal .j-pin-doodle,
+        #theme-journal .j-teeth {
+          display: none;
+        }
+
+        /* 纸条：阴影去掉，旋转归零（跨页时 transform 会让整块成为不可分割图元，
+           切页处直接丢一整张纸），但歪斜墨框必须留——它是主题在纸上唯一的签名 */
+        #theme-journal .j-slip,
+        #theme-journal .j-note,
+        #theme-journal .j-polaroid {
+          box-shadow: none;
+          transform: none;
+          border-color: var(--ink);
+          background: #ffffff;
+          break-inside: avoid;
+        }
+        #theme-journal .j-slip {
+          border-width: 1.5px;
+        }
+
+        /* 「纸会老」是屏幕上的时间感装置，打印件不该自带褪色档 */
+        #theme-journal .j-age-2 {
+          --j-edge: var(--ink);
+        }
+        #theme-journal .j-age-1 .j-stamp-date,
+        #theme-journal .j-age-2 .j-stamp-date {
+          opacity: 1;
+        }
+
+        /* 打印不做多栏：摊、网格、拼贴全部单列，中缝随多栏一起撤 */
+        #theme-journal .j-shell {
+          display: block;
+          max-width: none;
+          padding-left: 0;
+          padding-right: 0;
+        }
+        #theme-journal .j-day-spread,
+        #theme-journal .j-days {
+          display: block;
+        }
+        #theme-journal .j-spine {
+          display: none;
+        }
+        #theme-journal .j-day-head {
+          break-after: avoid;
+        }
+
+        /* 方格稿纸是 background-image，纸上印不出来 → 换成真边框 */
+        #theme-journal .notion-table,
+        #theme-journal .notion-simple-table {
+          background-image: none;
+        }
+        #theme-journal .notion-table td,
+        #theme-journal .notion-table th,
+        #theme-journal .notion-simple-table td,
+        #theme-journal .notion-simple-table th {
+          border-color: var(--ink) !important;
+          border-width: 1px !important;
+        }
+
+        /* 荧光笔是 linear-gradient，同理在纸上消失。
+           蓝是圆珠笔色，纸上「划两道」正是笔的语法，所以降级成双下划线 */
+        #theme-journal .j-highlight,
+        #theme-journal mark.j-marker-hit {
+          background: none;
+          text-decoration: underline;
+          text-decoration-style: double;
+          text-decoration-color: var(--blue);
+          text-decoration-thickness: 1px;
+        }
+
+        /* 深色代码块按现状转白：不依赖 print-color-adjust，
+           那是"要求印背景"的总开关，一开纸纹和阴影就一起回来。
+           注意深色涂在容器 .code-toolbar 上（public/css/prism-mac-style.css），
+           不在 pre.notion-code 上——只清后者会让透明底把父层的黑透出来，
+           看上去"声明生效了、设计却不成立" */
+        #theme-journal .code-toolbar,
+        #theme-journal .collapse-panel-wrapper {
+          background: none !important;
+          box-shadow: none !important;
+          border: 0 !important;
+          border-radius: 0 !important;
+          -webkit-backdrop-filter: none !important;
+          backdrop-filter: none !important;
+          /* overflow:hidden 会把跨页的代码裁掉 */
+          overflow: visible;
+        }
+
+        /* Mac 窗口三色点与复制按钮是屏幕上的拟物把手，纸上无意义 */
+        #theme-journal .pre-mac,
+        #theme-journal .code-toolbar > .toolbar,
+        #theme-journal .collapse-chevron,
+        #theme-journal .code-side-panel-root {
+          display: none;
+        }
+
+        /* 折叠代码块在屏幕上是 max-height:0，打印会把整段代码裁没——强制展开。
+           折叠标题留着：它是纸上的语言标签 */
+        #theme-journal .collapse-panel {
+          max-height: none !important;
+          overflow: visible !important;
+          border-top: 0 !important;
+        }
+        #theme-journal .collapse-header {
+          padding-left: 0 !important;
+          color: var(--ink) !important;
+        }
+
+        #theme-journal .notion-code {
+          background: transparent !important;
+          color: var(--ink) !important;
+          border: 1.5px solid var(--ink) !important;
+          /* prism-mac-style.css 有 pre.notion-code { border-radius: 0 !important }，
+             主题的歪斜圆角不写 !important 就一直是方的（屏幕态同样如此，
+             属既有偏差，此处只在纸上把签名要回来） */
+          border-radius: 6px 18px 5px 14px / 14px 5px 16px 6px !important;
+          box-shadow: none;
+          overflow: visible;
+          max-width: 100%;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        #theme-journal .notion-code code,
+        #theme-journal .notion-code pre {
+          color: var(--ink) !important;
+        }
+        /* 语法色是为深色底配的一整套（#ff7ab2 / #ffd479 / #a5d6ff…），
+           转白底后没有一个够黑。prism-mac 的 token 类名比主题用的多，逐类列举必定漏；
+           而主题屏幕态写的是 .token.keyword 这种 1-3-0 + !important，
+           单 .token 只有 1-2-0 压不住 → 借 #article-wrapper 抬到 2-2-0 一网打尽 */
+        #theme-journal #article-wrapper .notion-code .token,
+        #theme-journal #article-wrapper .notion-code .token.comment,
+        #theme-journal #article-wrapper .notion-code .token.punctuation {
+          color: var(--ink) !important;
+        }
+
+        /* 纸上点不了链接：正文外链必须把地址带出来。
+           只在正文生效——标签胶囊/返回/引用条里的都是站内路径，展开只会脏 */
+        #theme-journal #article-wrapper a[href^='http']::after {
+          content: ' ' attr(href);
+          font-family: var(--font-stamp);
+          font-size: 9pt;
+          color: var(--ink-soft);
+          word-break: break-all;
+        }
+        #theme-journal #article-wrapper a[href*='#'],
+        #theme-journal .notion-page-link a[href^='http']::after,
+        #theme-journal .notion-bookmark a[href^='http']::after {
+          content: none;
+        }
+
+        /* 标题落在页尾是打印最常见的坏形 */
+        #theme-journal h1,
+        #theme-journal h2,
+        #theme-journal h3,
+        #theme-journal .notion-header,
+        #theme-journal .notion-quote {
+          break-after: avoid;
+        }
+        #theme-journal .notion-link {
+          color: var(--blue);
+          text-decoration: none;
+        }
+      }
     `}</style>
   )
 }

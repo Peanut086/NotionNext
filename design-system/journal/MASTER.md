@@ -366,7 +366,7 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 | Callout | 便利贴黄矩形 + 手绘灯泡线描 + `rotate(0.8deg)` + 硬阴影 |
 | 引用 | 撕纸条 + 两端胶带，文字用蓝圆珠笔手写，前置手绘引号涂鸦 |
 | 分隔线 | 一条**两端都不到边**的歪斜墨线 |
-| 代码块 | 牛皮纸深色剪纸块（`#34302B` 系）+ 歪斜墨边 + 硬阴影；等宽代码、低饱和语法色（禁霓虹）；行号在左槽；左上角小胶带片写语言名；右上角剪刀涂鸦 + "复制" |
+| 代码块 | 牛皮纸深色剪纸块（`#34302B` 系）+ 歪斜墨边 + 硬阴影；等宽代码、低饱和语法色（禁霓虹）；行号在左槽；左上角小胶带片写语言名；右上角剪刀涂鸦 + "复制"。**打印态另有一套**（底色转白、语法色收敛、歪斜框用 `!important` 才抢得回来），见「打印」节 |
 | Mermaid | 直接以手绘流程图呈现：歪斜圆角框 + 曲线手绘箭头，允许一个节点被红圈圈出并配手写边注 |
 | Katex | 白纸条 + 细手绘边，公式本体保持印刷数学排版（**不要手写化**），下方一行蓝圆珠笔解释 + 等宽编号"公式 2-1" |
 | 视频 | 胶带纸框 + 线稿占位 + 手绘播放三角（硬阴影）+ 下方歪斜墨线进度条带红圆点手柄 + 等宽时长 |
@@ -441,6 +441,62 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 - 代码块保持横向滚动，下方给等宽提示"← 左右滑动查看完整代码 →"
 - 硬阴影在移动端减为 `4px 4px 0`，避免小屏过重
 - 触控目标 ≥44px：整张纸条可点，不只标题
+
+## 打印（@media print）（2026-10-10 落地）
+
+一个手作纸主题最该被打印——**但主题的材质几乎全靠 `background` 和 `box-shadow` 成立，而浏览器默认不打印背景**。
+所以打印不是"少点装饰"，是一次**语法翻译**：凡是印不出来的，要么主动清掉（胶带：留着只占位），要么换成线（方格稿纸 → 真边框）。
+一句话规则：**纸上只剩线**——歪斜墨框、邮戳描边、铅笔虚线、装订订书钉。
+
+实现全在 `themes/journal/style.js` 第 8 节，**不新增组件、不做 DOM 分支**（只在 `index.js` 给评论区和分享条补了 `j-comments`/`j-share` 两个类名作为隐藏锚点）。
+
+### 材质清单
+
+| 屏幕上的材质 | 纸上的处理 |
+|---|---|
+| 牛皮纸底 / 纸条底 | token 覆写成 `#ffffff`，正文墨色 `#1a1a1a` |
+| 硬阴影 `--shadow` | `none` |
+| 胶带、图钉、纸齿（`::before/::after`） | `display: none`——底色不印，留着只是空白占位 |
+| 歪斜墨框（`border`） | **保留**，收到 1.5px；它是主题在纸上唯一的签名 |
+| 邮戳、铅笔虚线、订书钉 | **保留**（本来就是线） |
+| 纸条旋转 `rotate(±1.5deg)` | `transform: none`——跨页时带 transform 的盒子会成整体图元，切页处直接丢一整张纸 |
+| 「纸会老」褪色档 | `--j-edge` 强制回墨色、日期戳 `opacity: 1`；打印件不该自带褪色 |
+| 顶栏/页脚/进度/目录/分享/评论/上下篇/表单/复制按钮 | `display: none` |
+
+### 版心与分页
+
+- `@page { margin: 16mm }`，**不写 `size`**：写死 A4 会让 Letter 纸和用户"另存为 PDF"里自定义的尺寸一起失效
+- **字号一律不动**。17px 落在 A4 上就是 12.75pt，手写标题 28–34px 是 21–25pt，本来就在合理区间；而 `#theme-journal .j-hand` 的特异度会压掉组件上的 Tailwind 绝对值（`text-[28px]`），为打印重设字号等于全站字号失控
+- 打印不做多栏：`.j-shell`/`.j-day-spread`/`.j-days` 全改单列，中缝 `.j-spine` 撤掉
+- `break-inside: avoid` 给纸条/便利贴/拍立得；`break-after: avoid` 给标题与引用——标题落在页尾是打印最常见的坏形
+
+### 三处「声明生效了、设计却不成立」的坑
+
+1. **深色代码块的深色不在 `pre.notion-code` 上，在容器 `.code-toolbar` 上**（`public/css/prism-mac-style.css` 的 `background: rgba(27,28,32,.94)`）。只把 `pre` 写成 `background: transparent !important` 会让父层的黑**透出来**——计算样式全绿、截图仍然是一坨黑。必须连 `.code-toolbar`/`.collapse-panel-wrapper` 一起清掉底色、阴影、边框、圆角与 `backdrop-filter`，并把 `overflow: hidden` 改 `visible`（否则跨页代码被裁）。
+2. **语法色收敛要抬特异度**。屏幕态写的是 `#theme-journal .notion-code .token.keyword`（1-3-0 + `!important`），打印态一条 `#theme-journal .notion-code .token` 只有 1-2-0，**压不住**（实测仍返回 4 种色）。借正文容器抬到 2-2-0：`#theme-journal #article-wrapper .notion-code .token { color: var(--ink) !important }`。用 `.token` 兜底而不是逐类列举，因为 prism-mac 的类名比主题用到的多，列举必定漏。
+3. **`border-radius` 在屏幕态就已经是 0**：prism-mac 的 `pre.notion-code { border-radius: 0 !important }` 压掉了主题的歪斜圆角，而主题那条没写 `!important`。按"代码块按现状"的口径屏幕规格不动，只在打印态把歪斜框用 `!important` 要回来——**所以打印态与屏幕态在代码块圆角上有意不一致**，屏幕侧这笔债记在这里。
+
+### 折叠代码块必须强制展开
+
+`CODE_COLLAPSE` 开启后长代码块是 `.collapse-panel { max-height: 0; overflow: hidden }`，打印会**整段代码裁没**且纸上毫无提示。打印态 `max-height: none !important` + `overflow: visible`。折叠标题（语言名）**留着**——它是纸上的语言标签；旁边的箭头涂鸦和侧栏按钮隐藏。
+当前站点该配置是关的（实测 `collapse` 命中 0），但它是站长可开的正式配置，所以规则先就位。
+
+### 其余翻译
+
+- **方格稿纸 → 真边框**：网格是 `background-image`，纸上印不出来；改 `background-image: none` + 单元格 `border: 1px var(--ink) !important`
+- **荧光笔 → 蓝圆珠笔双下划线**：`linear-gradient` 同理消失；`text-decoration: underline double` + `--blue`，"在纸上划两道"本来就是笔的语法
+- **外链带出地址**：`#article-wrapper a[href^='http']::after { content: ' ' attr(href) }`，用 stamp 字体 9pt。**只在正文生效**——标签胶囊/返回/引用条里都是站内路径，展开只会脏；锚点 `href*='#'`、`notion-page-link`、`notion-bookmark` 显式 `content: none`
+- **夜间态强制回浅**：token 覆写同时命中 `#theme-journal.j-night`，牛皮纸底不会跟着印成整页灰
+- **加密页不需要专门处理**：口令输入框与"提交"都是 `background` 撑出来的，默认不印背景 → 纸上本来就只剩那行说明文字，自解释
+
+### 不做
+
+不做打印专用组件、不做 DOM 分支、不加"打印"按钮、不用 `@page` 页眉页脚、不做封面页。
+
+### 验收方式
+
+`page.emulateMediaType('print')` + 视口 **673×950**（A4 减 16mm 页边 ≈178mm @96dpi，用真实打印宽度才能把 `md:`/`lg:` 断点一起验到），再 `page.pdf({ format: 'A4', printBackground: false, margin: 16mm })` 对页数。
+回归护栏在 `__tests__/themes/journalPrintStyles.test.js`（9 条，含上面三个坑与"不许出现 `print-color-adjust:`""字号只许 9pt"两条负向断言）。
 
 ---
 

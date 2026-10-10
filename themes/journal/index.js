@@ -1211,7 +1211,7 @@ ${decoded}`)
   }
 
   return (
-    <section className='mt-8 flex flex-wrap items-center gap-x-5 gap-y-2'>
+    <section className='j-share mt-8 flex flex-wrap items-center gap-x-5 gap-y-2'>
       <span className='j-hand j-red text-[20px]'>
         {j('JOURNAL_SHARE_TITLE', '分享')}
       </span>
@@ -1328,7 +1328,7 @@ function LayoutSlug(props) {
           <RecommendPosts recommendPosts={recommendPosts} />
         )}
 
-        <section className='mt-12'>
+        <section className='j-comments mt-12'>
           <h2 className='j-hand text-[24px]'>
             {locale?.COMMON?.COMMENTS || '评论'}
           </h2>
