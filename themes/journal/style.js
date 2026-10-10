@@ -10,8 +10,53 @@ export const Style = () => {
 
   return (
     <style jsx global>{`
-      /* 手写 / 印刷 / 等宽四层拉丁字形；中文手写靠自托管的霞鹜文楷 */
-      @import url('https://fonts.googleapis.com/css2?family=Amatic+SC:wght@700&family=Kalam:wght@400;700&family=Cabin:wght@400;600&family=JetBrains+Mono:wght@500&display=swap');
+      /* 手写 / 印刷 / 等宽四层拉丁字形；中文手写靠自托管的霞鹜文楷。
+         四族六档全部子集化后放在 public/fonts/（OFL 1.1，许可随件）。
+         切片范围 = Google 的 latin + latin-ext，另加代码块会命中的制表符/方块元素/全角 ASCII；
+         相对原来的 CDN 路径砍掉 Greek、Cyrillic、Devanagari、PUA —— 本站没有这些文种，
+         真出现时按字族回退到栈里的下一档 */
+      @font-face {
+        font-family: 'Amatic SC';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/fonts/AmaticSC-Bold.subset.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Kalam';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/fonts/Kalam-Regular.subset.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Kalam';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/fonts/Kalam-Bold.subset.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Cabin';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/fonts/Cabin-Regular.subset.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Cabin';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/fonts/Cabin-SemiBold.subset.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url('/fonts/JetBrainsMono-Medium.subset.woff2') format('woff2');
+      }
 
       /* 霞鹜文楷 GB2312 子集（public/fonts/，OFL 1.1）。
          官方无 700 档、最重是 Medium，故 400/700 两档都指向同一份 Medium；

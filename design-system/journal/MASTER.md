@@ -69,7 +69,37 @@ CJK 注意：Amatic/Kalam/Cabin 均无中文字形。手写感的中文用 **LXG
 >
 > `unicodes.txt` = ASCII + Latin-1 + U+3000-303F + U+FF01-FF60 + U+2010-203B + GB2312 区 0xB0-0xF7（用 Python 逐码点解码生成）+ 从渲染页抓出的本站汉字。
 
-> **未清偿的字体债（2026-10-08 记录，尚未处理）**：中文手写已经自托管，但 `style.js` 顶部仍用 `@import url('https://fonts.googleapis.com/css2?...')` 拉 Amatic SC / Kalam / Cabin / JetBrains Mono 四个拉丁字形。这既是境内可达性风险（拉不到就整层 Marker/Hand 掉回系统字体），也是本主题唯一剩下的外部渲染阻塞。出路是同样子集化自托管（这四个只有拉丁字形，子集极小），并把 `@import` 换成 `@font-face`。另：站点 Notion 设置里的 `FONT_URL` 仍指 elemecdn 那份霞鹜文楷 CSS，WebFontLoader 每页白拉 6 个请求——代码侧已无引用（族名带 `Sub` 后缀不与之冲突），只能去设置页清，属于配置债不是代码债。
+> **字体债已清偿（2026-10-10）**：`style.js` 顶部那条 `@import url('https://fonts.googleapis.com/css2?...')` 已经换成六条本地 `@font-face`，Marker/Hand/Print/Stamp 四层的拉丁字形全部自托管在 `public/fonts/`。**主题自己的渲染路径**不再依赖任何外部字体主机。
+>
+> 但「本主题没有外部字体」这句话是假的，实测要分清两件事：清掉 `@import` 之后首页仍然发出 3 个 `fonts.googleapis.com` 请求，来源是站点 Notion 设置项 `FONT_URL`，它是四条 URL 的数组——elemecdn 那份霞鹜文楷 CSS，加上 `Bitter`、`Noto Sans SC:wght@300`、`Noto Serif SC:wght@300` 三份 Google CSS，由 `components/SEO.js` 的 WebFontLoader 在挂载 1.5s 后异步注入（所以不是首屏渲染阻塞，但 Noto SC 会展开成十几个 gstatic 分片，字节数比这次迁移掉的那条 `@import` 大得多）。**注意本主题的字体栈里 `--font-print` 收在 `'Noto Sans SC'`、`--font-hand` 收在 `'Noto Serif SC'`，这两档今天正是由那份配置提供的**：清 `FONT_URL` 时不必保留它们，清了就是回落到 PingFang/YaHei/系统 KaiTi，符合规格。
+>
+> 产物（六档共 182 KB，许可随件四个 `OFL-*.txt`）：
+>
+> | 文件 | 档 | 大小 |
+> |---|---|---|
+> | `AmaticSC-Bold.subset.woff2` | Marker 700 | 44 KB |
+> | `Kalam-Regular.subset.woff2` / `Kalam-Bold.subset.woff2` | Hand 400/700 | 30 KB ×2 |
+> | `Cabin-Regular.subset.woff2` / `Cabin-SemiBold.subset.woff2` | Print 400/600 | 22–23 KB |
+> | `JetBrainsMono-Medium.subset.woff2` | Stamp 500 | 28 KB |
+>
+> 三条实现时的决定，改动前请先读：
+>
+> - **这是迁移不是重排**。族名、权重组合、`font-display: swap` 都与原 `@import` 逐一对齐，包括那个看似多余的 `Cabin 600`——主题里没有任何 `font-weight: 600` 声明，但 Notion 正文的 `<strong>`/`<b>` 走 700，浏览器在同族已加载的档里取最近的那一档，所以 600 实际上就是正文粗体。删掉它正文粗体会落到 Noto Sans SC。
+> - **切片范围 = Google 的 `latin` + `latin-ext`，再加代码块会命中的制表符/方块元素/箭头/数学符号/全角 ASCII；相对原 CDN 路径砍掉 Greek、Cyrillic、Devanagari、PUA**（Kalam 原始 TTF 416 KB 里有六成是 Devanagari + PUA，砍掉后 30 KB）。本站没有这些文种，真出现时按字族回退到栈里的下一档，这是刻意接受的偏离。
+> - **不再做 `unicode-range` 分片**。Google 那套 23 片是按文种切的，我们只留一档拉丁，分片收益没了；单文件让 `@font-face` 保持六条可读的声明。代价是纯中文页面也会下载这四族——但首页/文章页的邮戳与标记里一定有拉丁数字和字母，实际下载行为没差别。
+>
+> 取源手法（下次重生成照这个走，别去抓 Google 的 woff2 分片）：用 curl 类 UA 请求 css2，Google 会返回**未切分的静态 TTF**（一个族一个权重一份），现代浏览器 UA 只会拿到按 `unicode-range` 切好的碎片。
+>
+> ```bash
+> curl -A 'curl/8.6.0' 'https://fonts.googleapis.com/css2?family=Kalam:wght@700'   # -> 单个 .ttf
+> pyftsubset kalam-700.ttf --output-file=public/fonts/Kalam-Bold.subset.woff2 --flavor=woff2 \
+>   --unicodes='<latin + latin-ext + 代码块符号，见上>' --layout-features='*' \
+>   --name-IDs=0,1,2,3,4,5,6,7,8,11,13,14 --drop-tables+=DSIG --no-recalc-timestamp
+> ```
+>
+> `--layout-features='*'` 是刻意的：这份工作是去掉外部依赖，不该顺手改变字形行为，手写字体的连字/替代一旦丢了在截图里很难归因。**另注意：Google 静态实例的 `name` 表里 13/14（许可描述/许可 URL）本来就是空的**，只有 0（版权）有值——所以 OFL 的「许可随件」只能靠独立的 `OFL-*.txt` 落实，别指望把许可烧进字体里。
+>
+> **仍欠的配置债（唯一一条）**：Notion 设置项 `FONT_URL` 那四条外部 CSS（见上一段）。代码侧已无任何引用需要它们，只能去设置页清；清完首页的 `fonts.googleapis.com` 请求应归零，这可以作为验收判据。
 
 ---
 
@@ -413,6 +443,7 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 - 触控目标 ≥44px：整张纸条可点，不只标题
 
 ---
+
 
 ## 设计稿索引
 
