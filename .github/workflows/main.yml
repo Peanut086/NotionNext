@@ -26,19 +26,25 @@ jobs:
             # 仅打印工作区状态便于事后排查
             git status --porcelain
 
-            # origin 走的是 githubfast.com 中转，它会间歇性抖动。
-            # 一次 fetch 失败 = set -e 直接退出，42 秒变红且 HEAD 原地不动，
-            # 于是线上跑的是上一个镜像而 git 已经前进 —— 看起来"部署失败"但其实没构建
-            fetch_ok=0
-            for i in 1 2 3; do
-              if git fetch origin main; then
-                fetch_ok=1
+            # origin 走的是 githubfast.com 中转。它有两种坏法，都表现为「几十秒变红、
+            # HEAD 原地不动、容器没被碰」：
+            #   1) fetch 本身报错（抖动）；
+            #   2) fetch 成功，但中转站还没同步到本次触发的 commit ——
+            #      于是下面的 HEAD 断言立刻中止。2026-10-12 那次 39 秒变红就是这一种：
+            #      几分钟后在服务器上 git ls-remote 已经能拿到同一个 sha。
+            # 所以重试的条件必须是「拿回来的确实是 $sha」，而不是「fetch 没报错」。
+            # 12 次 × 20 秒 ≈ 4 分钟窗口；command_timeout 是 60 分钟，等得起。
+            sha='${{ github.sha }}'
+            synced=0
+            for i in $(seq 1 12); do
+              if git fetch origin main && [ "$(git rev-parse FETCH_HEAD)" = "$sha" ]; then
+                synced=1
                 break
               fi
-              echo "⚠️ 第 $i 次 fetch 失败，15 秒后重试"
-              sleep 15
+              echo "⏳ 第 $i 次：中转站还没有 $sha（或 fetch 失败），20 秒后重试"
+              sleep 20
             done
-            [ "$fetch_ok" = 1 ] || { echo "❌ git fetch 连续 3 次失败，中止"; exit 1; }
+            [ "$synced" = 1 ] || { echo "❌ 4 分钟内中转站始终没同步到 $sha，中止（未构建，线上仍是旧镜像）"; exit 1; }
 
             # 只允许快进：分叉或本地改动会直接让部署变红，
             # 而不是静默用旧源码构建出"部署成功"的旧镜像
