@@ -157,6 +157,11 @@ const stateMarks = post => {
  * 规格见 design-system/journal/MASTER.md「一天一摊」节
  * ------------------------------------------------------------------ */
 
+/* 归档行只带「这一行自己看不看得出来」的三种状态：置顶 / 精选 / plog 的数据源
+   是标签，而归档行右端本来就画了第一枚标签的 pill。子集是过滤，不是第二套判定，
+   规格见 MASTER「归档行：轻量标记」节 */
+const ARCHIVE_MARK_KEYS = ['locked', 'revised', 'photo']
+
 const WEEK_CN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
 /** 同天即同一摊：摊序按该天首次出现的位置，摊内保持后端顺序 */
@@ -1426,7 +1431,7 @@ function LayoutArchive(props) {
                       render={post => (
                         <div
                           key={post?.id || post?.slug}
-                          className='j-slip j-tape-single flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3'
+                          className='j-slip j-tape-single j-arch-row flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3'
                         >
                           <h2 className='j-hand flex-1 text-[19px]'>
                             <SmartLink
@@ -1436,14 +1441,30 @@ function LayoutArchive(props) {
                               {post.title}
                             </SmartLink>
                           </h2>
-                          {post?.tags?.[0] && (
-                            <SmartLink
-                              href={`/tag/${encodeURIComponent(post.tags[0])}`}
-                              className='j-pill j-pill-yellow relative z-[2]'
-                            >
-                              {post.tags[0]}
-                            </SmartLink>
-                          )}
+                          {/* 标记与 pill 同组换行；实测分组与不分组行高一致，
+                              真正的窄屏成本是标题被抢宽度，见 MASTER「归档行：轻量标记」 */}
+                          <div className='relative z-[2] flex flex-wrap items-center gap-x-2 gap-y-1'>
+                            {stateMarks(post)
+                              .filter(mark =>
+                                ARCHIVE_MARK_KEYS.includes(mark.key)
+                              )
+                              .map(mark => (
+                                <span
+                                  key={mark.key}
+                                  className='j-mark j-stamp whitespace-nowrap'
+                                >
+                                  {mark.label}
+                                </span>
+                              ))}
+                            {post?.tags?.[0] && (
+                              <SmartLink
+                                href={`/tag/${encodeURIComponent(post.tags[0])}`}
+                                className='j-pill j-pill-yellow'
+                              >
+                                {post.tags[0]}
+                              </SmartLink>
+                            )}
+                          </div>
                         </div>
                       )}
                     />

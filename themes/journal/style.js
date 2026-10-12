@@ -1425,6 +1425,14 @@ export const Style = () => {
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
         }
+        /* 归档行的标记不是「多出一行」，它抢的是标题的宽度：实测 306px 的行里
+           两枚标记 + pill 占掉 154px，标题被压到 104px 就多折两行。
+           窄屏只留优先级最高的第一枚（加密 > 修订 > 有图）——
+           减法与「摘要压成一行」同级，且信息在桌面与首页纸条上都还在。
+           只挂 .j-arch-row：首页纸条也住在 .j-days 里，那里有宽度，不该跟着减 */
+        #theme-journal .j-arch-row .j-mark + .j-mark {
+          display: none;
+        }
       }
 
       /* ---------- 8. 减弱动效 ---------- */
