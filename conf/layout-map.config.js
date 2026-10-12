@@ -20,6 +20,8 @@ module.exports = {
     '/tag': 'LayoutTagIndex',
     '/category': 'LayoutCategoryIndex',
     '/plog': 'LayoutPlog',
+    '/legend': 'LayoutLegend',
+    '/year/[year]': 'LayoutYearbook',
     '/[prefix]': 'LayoutSlug',
     '/[prefix]/[slug]': 'LayoutSlug',
     '/[prefix]/[slug]/[...suffix]': 'LayoutSlug',

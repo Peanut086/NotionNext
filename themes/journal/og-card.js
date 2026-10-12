@@ -30,6 +30,55 @@ const BIT_CLIP =
 const PRINT = "'Cabin', 'Noto Sans SC', sans-serif"
 const STAMP = "'JetBrains Mono', 'Noto Sans SC', monospace"
 
+/**
+ * 卡片尺寸的唯一来源：api 与组件都读它。
+ * 两处各写一遍数字迟早会漂，一漂图片就被裁
+ */
+export const OG_SIZES = {
+  wide: { width: 1200, height: 630 },
+  story: { width: 1080, height: 1440 }
+}
+
+/** 两版式只差字号与留白，材质同一套 */
+const LAYOUT = {
+  wide: {
+    pad: '56px 72px 48px',
+    rule: 980,
+    titleSize: 62,
+    titleMax: 238,
+    titleBudget: 34,
+    quoteSize: 40,
+    quoteMax: 250,
+    quoteBudget: 76,
+    sourceSize: 26
+  },
+  story: {
+    pad: '72px 76px 64px',
+    rule: 840,
+    titleSize: 88,
+    titleMax: 560,
+    titleBudget: 44,
+    quoteSize: 56,
+    quoteMax: 640,
+    quoteBudget: 96,
+    sourceSize: 34
+  }
+}
+
+/**
+ * 剪报的引文：换行与控制字符压成空格，超上限截断加省略号。
+ * 按字符数计而不是按 fitTitle 的权重——引文是被裁的对象，长度要可预期
+ */
+export const clampQuote = (text, max = 160) => {
+  const flat = String(text || '')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!flat) return ''
+  const n = Number(max) > 0 ? Number(max) : 160
+  return flat.length > n ? `${flat.slice(0, n).trimEnd()}…` : flat
+}
+
 const WEEK_CN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 const WEEK_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -287,8 +336,8 @@ const Postmark = ({ date, locale }) => {
   )
 }
 
-const HandRule = () => (
-  <svg viewBox='0 0 980 10' width='980' height='10'>
+const HandRule = ({ w = 980 }) => (
+  <svg viewBox='0 0 980 10' width={w} height={Math.round((w * 10) / 980)}>
     <path
       d='M2 6C114 1.4 226 9.2 338 5.2s226-6.4 338-2 188 6.6 300 2.4'
       fill='none'
@@ -305,18 +354,28 @@ export function OgCard({
   category = '',
   states = [],
   site = '',
-  locale = 'zh-CN'
+  locale = 'zh-CN',
+  quote = '',
+  size = 'wide'
 }) {
   const labels = STATE_LABELS[locale] || STATE_LABELS['zh-CN']
+  const dim = OG_SIZES[size] || OG_SIZES.wide
+  const L = LAYOUT[size] || LAYOUT.wide
   const has = key => states.includes(key)
   const paper = has('featured') ? YELLOW : has('receipt') ? TAPE : SLIP
   const shown = states.filter(k => k !== 'locked').slice(0, 3)
+  // 剪报卡的主角是选中的那句，标题退成出处；没有引文就没有剪报
+  const clipping = !!quote
+  const hero = clipping ? quote : title
+  const heroStyle = clipping
+    ? { fontSize: L.quoteSize, lineHeight: 1.5, maxHeight: L.quoteMax }
+    : { fontSize: L.titleSize, lineHeight: 1.28, maxHeight: L.titleMax }
 
   return (
     <div
       style={{
-        width: 1200,
-        height: 630,
+        width: dim.width,
+        height: dim.height,
         display: 'flex',
         position: 'relative',
         overflow: 'hidden',
@@ -343,14 +402,14 @@ export function OgCard({
           borderRadius: WOBBLE,
           boxShadow: `8px 8px 0 ${INK}`,
           transform: 'rotate(-0.6deg)',
-          padding: '56px 72px 48px',
+          padding: L.pad,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between'
         }}
       >
-        <Tape style={{ top: -17, left: 470 }} />
-        {has('receipt') && <Teeth />}
+        <Tape style={{ top: -17, left: Math.round(dim.width / 2) - 117 }} />
+        {(clipping || has('receipt')) && <Teeth />}
         {has('revised') && (
           <Tape
             style={{
@@ -380,21 +439,47 @@ export function OgCard({
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {clipping && (
+            <div
+              style={{
+                fontFamily: PRINT,
+                fontSize: heroStyle.fontSize,
+                color: SOFT,
+                lineHeight: 1
+              }}
+            >
+              「
+            </div>
+          )}
           <div
             style={{
               fontFamily: PRINT,
-              fontSize: 62,
               fontWeight: 600,
-              lineHeight: 1.28,
               letterSpacing: 1,
               color: INK,
-              maxHeight: 238,
-              overflow: 'hidden'
+              overflow: 'hidden',
+              ...heroStyle
             }}
           >
-            {fitTitle(title, 34)}
+            {clipping
+              ? `${fitTitle(hero, L.quoteBudget)}」`
+              : fitTitle(hero, L.titleBudget)}
           </div>
-          <div style={{ marginTop: 10, display: 'flex' }}>{HandRule()}</div>
+          {clipping && (
+            <div
+              style={{
+                fontFamily: PRINT,
+                fontSize: L.sourceSize,
+                color: SOFT,
+                marginTop: 18
+              }}
+            >
+              {`—— ${fitTitle(title, 26)}`}
+            </div>
+          )}
+          <div style={{ marginTop: 10, display: 'flex' }}>
+            <HandRule w={L.rule} />
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>

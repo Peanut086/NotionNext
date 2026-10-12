@@ -11,10 +11,13 @@ const fontDir = path.join(process.cwd(), 'public/fonts')
 const ogFontFiles = () =>
   [...cardSource.matchAll(/file: '([^']+)'/g)].map(m => m[1])
 
-/** 网页端 stateMarks 的键：卡片的状态词表必须与它一致 */
+/** 网页端的状态词表：LEGEND_KEYS 是键与顺序的唯一来源，stateMarks 只是按表判定 */
 const webStateKeys = () => {
-  const start = themeSource.indexOf('const stateMarks =')
-  const block = themeSource.slice(start, themeSource.indexOf('/* ---', start))
+  const start = themeSource.indexOf('const LEGEND_KEYS =')
+  const block = themeSource.slice(
+    start,
+    themeSource.indexOf('const markName', start)
+  )
   return [...block.matchAll(/key: '([a-z]+)'/g)].map(m => m[1])
 }
 
@@ -108,11 +111,12 @@ describe('journal OG card', () => {
   })
 
   test('wiring reuses the same state vocabulary and query contract', () => {
-    const start = themeSource.indexOf('const ogImageUrl =')
+    // 三型共用一个拼 URL 的函数（MASTER「分享卡三型」节）：契约在 cardUrl，横卡只是它的调用方
+    const start = themeSource.indexOf('const cardUrl =')
     expect(start).toBeGreaterThan(-1)
     const block = themeSource.slice(start, themeSource.indexOf('const j ='))
     expect(block).toMatch(/stateMarks\(post\)\.map\(m => m\.key\)/)
-    ;['date', 'category', 'state', 'locale'].forEach(k =>
+    ;['date', 'category', 'state'].forEach(k =>
       expect(block).toContain(`q.set('${k}'`)
     )
     // LINK 非绝对 URL 时必须整体退回兜底（返回 null → 不注入），而不是给出相对 og:image
@@ -120,6 +124,12 @@ describe('journal OG card', () => {
     // 静态导出没有 pages/api：EXPORT 守卫必须在拼 URL 之前
     expect(block).toMatch(/if \(process\.env\.EXPORT === 'true'\) return null/)
     expect(block).toContain('/api/og?')
+    // 尺寸与引文由调用方作为参数塞进同一张 query：一处拼，三型才不会各写一套
+    expect(block).toMatch(/q\.set\(key, String\(value\)\)/)
+    expect(block).toMatch(/\[key, value\]\)/)
+    expect(themeSource).toMatch(
+      /return cardUrl\(post, \{ locale: localeTag \}\)/
+    )
   })
 
   test('reads fonts relative to the standalone cwd, not an absolute path', () => {

@@ -29,6 +29,46 @@ const CONFIG = {
   JOURNAL_AGE_MID_DAYS: 180,
   JOURNAL_AGE_OLD_DAYS: 730,
 
+  // 上次落笔：扉页写全本站最大发表日，挂载后再补「停笔 N 天」
+  JOURNAL_LAST_STROKE: true,
+  // 页码：只印在拿得到全量文章的首页纸条与归档行上，规格见 MASTER「页码」节
+  JOURNAL_PAGE_NUMBERS: true,
+  // 落笔格：归档右栏的一年日期点阵
+  JOURNAL_WRITING_GRID: true,
+  JOURNAL_GRID_TITLE: '落笔格',
+
+  // 往年的今天：日期取自读者的浏览器，所以只在挂载后出现（规格见 MASTER「往年的今天」节）
+  JOURNAL_ON_THIS_DAY: true,
+  JOURNAL_ON_THIS_DAY_COUNT: 3,
+  JOURNAL_ECHO_TITLE: '往年的今天',
+
+  // 连载语法：标签前缀约定，规格见 MASTER「连载语法」节
+  // 前缀之后的那截就是连载名，例如标签「连载:手账入门」→ 连载名「手账入门」
+  JOURNAL_SERIES_PREFIX: '连载:',
+  JOURNAL_SERIES_LABEL: '连载',
+  JOURNAL_SERIES_TITLE: '连载',
+  // 一话不成辑：清单要等第二篇才出现，第一话只当普通标签
+  JOURNAL_SERIES_MIN: 2,
+
+  // 年刊 /year/[year]：把一年印成一册，一月开一页（规格见 MASTER「年刊」节）
+  JOURNAL_YEARBOOK: true,
+  JOURNAL_YEARBOOK_LABEL: '年刊',
+
+  // 图例页 /legend：本子自己写的说明书。默认不进顶栏，入口在归档右栏
+  JOURNAL_NAV_LEGEND: false,
+  JOURNAL_LEGEND_TITLE: '图例',
+  JOURNAL_LEGEND_SUBTITLE: '这些胶带、图钉、红圈各是什么意思',
+
+  // 读者的铅笔痕：进度只存在读者自己的浏览器里，规格见 MASTER「书签」「读完」两节
+  JOURNAL_READING_BOOKMARK: true,
+  // 点开就走不该留痕；低于这个百分点不记
+  JOURNAL_READ_MIN_PCT: 3,
+  // 读者的历史不该无限长，按最近使用淘汰
+  JOURNAL_READ_KEEP: 200,
+  JOURNAL_READ_DONE_CHECK: true,
+  // 到门槛才算读完——判据只写在 reading.js 的 isRead 里
+  JOURNAL_READ_DONE_PCT: 97,
+
   // 导航（胶带纸条）
   JOURNAL_NAV_ARCHIVE: true,
   JOURNAL_NAV_CATEGORY: true,
@@ -49,6 +89,10 @@ const CONFIG = {
   JOURNAL_TOC_TITLE: '这一页的目录',
   // OG 卡接线（B 案：主题内第二枚 og:image，规格见 MASTER「接线决定」节）
   JOURNAL_OG_CARD: true,
+  // 分享卡三型（横卡 / 故事卡 / 剪报卡，规格见 MASTER「分享卡三型」节）
+  JOURNAL_SHARE_CARDS: true,
+  // 剪报引文上限：超出截成省略号，卡片版式装不下的字不该硬塞
+  JOURNAL_CARD_QUOTE_MAX: 160,
 
   // 分享（主题内自绘的纯文字手绘链接；总开关仍走站点 POST_SHARE_BAR_ENABLE）
   JOURNAL_SHARE_BAR: true,

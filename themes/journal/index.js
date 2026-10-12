@@ -13,6 +13,8 @@ import { uuidToId } from 'notion-utils'
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import CONFIG from './config'
+import { clampQuote } from './og-card'
+import { isRead, pctOf, useProgressRecord, useReadMarks } from './reading'
 import { Style } from './style'
 
 const Comment = dynamic(() => import('@/components/Comment'), { ssr: false })
@@ -66,23 +68,35 @@ const postHref = post => {
 const isLocked = post => !!post?.password
 
 /**
- * OG 卡绝对 URL（B 案接线，规格见 MASTER「接线决定」节）。
- * LINK 不是绝对 http(s) 时返回 null → 不注入，og:image 落回 SEO.js 现状值
+ * 分享卡 URL 的唯一守卫（规格见 MASTER「分享卡三型」节）。
+ * 静态导出没有 pages/api，/api/og 会 404；LINK 不是绝对 http(s) 时拼不出可信地址。
+ * 两种情况都返回 null：og:image 落回 SEO.js 现状值，分享行整项不出现。
  */
-const ogImageUrl = (post, localeTag) => {
-  // 静态导出没有 pages/api，/api/og 会 404 → 整体退回 SEO.js 现状值
+const cardUrl = (post, params = {}) => {
   if (process.env.EXPORT === 'true') return null
-  if (!j('JOURNAL_OG_CARD', true) || !post?.title) return null
+  if (!post?.title) return null
   const base = (siteConfig('LINK', '') || '').trim().replace(/\/+$/, '')
   if (!/^https?:\/\//i.test(base)) return null
+
   const q = new URLSearchParams({ title: post.title })
   const date = dayKey(postDate(post))
   if (date) q.set('date', date)
   if (post.category) q.set('category', post.category)
   const states = stateMarks(post).map(m => m.key)
   if (states.length) q.set('state', states.join(','))
-  if (localeTag) q.set('locale', localeTag)
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === '' || value === undefined || value === null) return
+    q.set(key, String(value))
+  })
   return `${base}/api/og?${q.toString()}`
+}
+
+/**
+ * 横卡 = og 元数据（B 案接线，规格见 MASTER「接线决定」节）
+ */
+const ogImageUrl = (post, localeTag) => {
+  if (!j('JOURNAL_OG_CARD', true)) return null
+  return cardUrl(post, { locale: localeTag })
 }
 
 const j = (key, fallback) => siteConfig(key, fallback, CONFIG)
@@ -112,44 +126,117 @@ const paperAge = key => {
 
 /* ------------------------------------------------------------------ *
  * 状态编码：胶带/图钉是语法，不是装饰
- * 判定集中在这一个函数，规格见 design-system/journal/MASTER.md
- * 「状态编码」节；PostSlip 只消费返回的有序数组
+ * 六档的键序、名字、数据来源全写在 LEGEND_KEYS 这一张表里：stateMarks 按表
+ * 判定与取名，图例页按表说明。判定与文档不许各长一份，见 MASTER「状态编码」节
  * ------------------------------------------------------------------ */
+
+const LEGEND_KEYS = [
+  {
+    key: 'locked',
+    name: '加密',
+    how: 'Notion 页面设了 password',
+    where: '右上角的折角 + 一枚红手绘锁；点进去先要密码'
+  },
+  {
+    key: 'pinned',
+    name: '置顶',
+    how: '标签命中站点的 TOP_TAG',
+    where: '左上角的图钉'
+  },
+  {
+    key: 'featured',
+    name: '精选',
+    label: ['JOURNAL_FEATURED_LABEL', '精选'],
+    how: '标签命中 JOURNAL_FEATURED_TAG',
+    where: '整张纸条换成便利贴黄，标题前一颗红星'
+  },
+  {
+    key: 'revised',
+    name: '修订',
+    how: '发表若干天后回来改过（JOURNAL_REVISED_DAYS 是门槛）',
+    where: '左下角补贴一小条胶带；文章页日期行另写「改于 MM.DD」'
+  },
+  {
+    key: 'receipt',
+    name: 'plog',
+    label: ['JOURNAL_PLOG_TITLE', 'plog'],
+    how: '标签命中 JOURNAL_PLOG_TAG',
+    where: '纸底一道撕线加齿孔，像一张收据'
+  },
+  {
+    key: 'photo',
+    name: '有图',
+    how: '文章有封面图，且没有上锁',
+    where: '右上角一张迷你拍立得的白边'
+  }
+]
+
+const markName = item =>
+  item.label ? j(item.label[0], item.label[1]) : item.name
+
+/** 修订档的唯一判定：回来改过就返回间隔天数，否则 0。
+ *  stateMarks 与文章页的「改于」共用，不许各算一遍 */
+const revisedGap = post => {
+  const published = dayKey(post?.publishDate || post?.date?.start_date)
+  const edited = dayKey(post?.lastEditedDate)
+  // 缺任一侧就不判：没有发表日时 Date.parse 差值会大得离谱，等于凭空贴胶带
+  if (!published || !edited) return 0
+  const gapDays = (Date.parse(edited) - Date.parse(published)) / DAY_MS
+  return gapDays >= Number(j('JOURNAL_REVISED_DAYS', 7)) ? gapDays : 0
+}
+
+/** 「改于 MM.DD」：与修订档同一道门槛，只出现在文章页的日期行 */
+const revisedStamp = post => {
+  if (!revisedGap(post)) return ''
+  return mdOf(dayKey(post?.lastEditedDate))
+}
 
 const stateMarks = post => {
   if (!post || !j('JOURNAL_STATE_ENCODING', true)) return []
 
   const tags = post?.tags || []
   const topTag = siteConfig('TOP_TAG', '')
-  const published = dayKey(post?.publishDate || post?.date?.start_date)
-  const edited = dayKey(post?.lastEditedDate)
-  // Notion 的 last_edited_time 改一个标点都会动，只认「隔了些天再回来改」
-  const gapDays = (new Date(edited || 0) - new Date(published || 0)) / 86400000
-  const revised = gapDays >= Number(j('JOURNAL_REVISED_DAYS', 7))
+  const hits = {
+    locked: isLocked(post),
+    pinned: !!topTag && tags.includes(topTag),
+    featured: tags.includes(j('JOURNAL_FEATURED_TAG', 'featured')),
+    revised: revisedGap(post) > 0,
+    receipt: tags.includes(j('JOURNAL_PLOG_TAG', 'plog')),
+    photo: !isLocked(post) && !!(post?.pageCoverThumbnail || post?.pageCover)
+  }
 
   return (
-    [
-      isLocked(post) && { key: 'locked', label: '加密' },
-      topTag && tags.includes(topTag) && { key: 'pinned', label: '置顶' },
-      tags.includes(j('JOURNAL_FEATURED_TAG', 'featured')) && {
-        key: 'featured',
-        label: j('JOURNAL_FEATURED_LABEL', '精选')
-      },
-      revised && { key: 'revised', label: '修订' },
-      tags.includes(j('JOURNAL_PLOG_TAG', 'plog')) && {
-        key: 'receipt',
-        label: j('JOURNAL_PLOG_TITLE', 'plog')
-      },
-      !isLocked(post) &&
-        (post?.pageCoverThumbnail || post?.pageCover) && {
-          key: 'photo',
-          label: '有图'
-        }
-    ]
-      .filter(Boolean)
-      // 一张纸条最多 3 个标记，超出按上面的书写顺序截断
+    LEGEND_KEYS.filter(item => hits[item.key])
+      .map(item => ({ key: item.key, label: markName(item) }))
+      // 一张纸条最多 3 个标记，超出按表里的顺序截断
       .slice(0, 3)
   )
+}
+
+/* ------------------------------------------------------------------ *
+ * 连载语法：标签前缀约定
+ * 一篇只归一个连载；话数由发表日推得，Notion 里没有「第几话」这个字段
+ * 规格见 design-system/journal/MASTER.md「连载语法」节
+ * ------------------------------------------------------------------ */
+
+/** 剥前缀只写这一次：连载判据与标签胶囊都问它。前缀为空即整族语法关掉 */
+const seriesNameOf = tag => {
+  const prefix = j('JOURNAL_SERIES_PREFIX', '连载:')
+  if (!prefix || !String(tag || '').startsWith(prefix)) return ''
+  return String(tag).slice(prefix.length).trim()
+}
+
+/** 一篇只归一个连载：取第一个命中的标签；前缀之后没有字（光一个「连载:」）不算 */
+const seriesOf = post => {
+  const tag = (post?.tags || []).find(t => seriesNameOf(t))
+  if (!tag) return null
+  return { tag: String(tag), name: seriesNameOf(tag) }
+}
+
+/** 标签胶囊上的写法：把前缀换成「连载 · 名字」，链子仍指向原标签页 */
+const tagLabel = tag => {
+  const name = seriesNameOf(tag)
+  return name ? `${j('JOURNAL_SERIES_LABEL', '连载')} · ${name}` : tag
 }
 
 /* ------------------------------------------------------------------ *
@@ -161,6 +248,17 @@ const stateMarks = post => {
    是标签，而归档行右端本来就画了第一枚标签的 pill。子集是过滤，不是第二套判定，
    规格见 MASTER「归档行：轻量标记」节 */
 const ARCHIVE_MARK_KEYS = ['locked', 'revised', 'photo']
+
+/** 今日命中数：判定仍只有 stateMarks 一处，这里只负责数，含 3 个封顶的截断 */
+const markCounts = (posts = []) => {
+  const counts = new Map(LEGEND_KEYS.map(item => [item.key, 0]))
+  posts.forEach(post =>
+    stateMarks(post).forEach(mark =>
+      counts.set(mark.key, (counts.get(mark.key) || 0) + 1)
+    )
+  )
+  return counts
+}
 
 const WEEK_CN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
@@ -185,6 +283,77 @@ const monthOf = key => {
 const weekOf = key => {
   const d = new Date(key)
   return Number.isNaN(d.getTime()) ? '' : WEEK_CN[d.getDay()]
+}
+
+/* ------------------------------------------------------------------ *
+ * 元信息：上次落笔 / 页码 / 落笔格
+ * 三样都只读全量文章，规格见 MASTER 同名三节
+ * ------------------------------------------------------------------ */
+
+/** 全本站最大的发表日；'yyyy-MM-dd' 定宽，字典序即时间序 */
+const lastStrokeOf = (posts = []) => {
+  let max = ''
+  posts.forEach(post => {
+    const key = dayKey(postDate(post))
+    if (key > max) max = key
+  })
+  return max
+}
+
+/** 停笔天数：与「纸会老」同一套 UTC 日编号口径，跨午夜不会差一天 */
+const idleDays = key => {
+  if (!key) return 0
+  const born = Date.parse(`${key}T00:00:00Z`)
+  if (Number.isNaN(born)) return 0
+  return Math.max(0, utcDayNumber(Date.now()) - utcDayNumber(born))
+}
+
+/** 定宽字符串比大小；不用 localeCompare，Node 与浏览器的 ICU 不必同一档 */
+const cmp = (a, b) => (a === b ? 0 : a < b ? -1 : 1)
+
+/** 页码：(日期升序, 同日按 slug 字典序)。tiebreak 用 slug 不用后端序——
+ *  后端序每编辑一次就漂一遍，而印在纸上的页码一漂就全乱：稳定性优先 */
+const pageNumbers = (posts = []) => {
+  const dated = posts
+    .map(post => ({
+      id: post?.id || post?.slug,
+      key: dayKey(postDate(post)),
+      slug: String(post?.slug || post?.id || '')
+    }))
+    .filter(item => item.key && item.id)
+    .sort((a, b) => (a.key === b.key ? cmp(a.slug, b.slug) : cmp(a.key, b.key)))
+  const map = new Map()
+  dated.forEach((item, i) => map.set(item.id, i + 1))
+  return map
+}
+
+/** 落笔格：年 → 月 → 该月各日落了几张。全程字符串切片，不构造 Date——
+ *  时区会把日期挪一天 */
+const yearGrids = (posts = []) => {
+  const byYear = new Map()
+  posts.forEach(post => {
+    const key = dayKey(postDate(post))
+    if (!key) return
+    const year = key.slice(0, 4)
+    const month = Number(key.slice(5, 7))
+    const day = Number(key.slice(8, 10))
+    if (!byYear.has(year)) byYear.set(year, new Map())
+    const months = byYear.get(year)
+    if (!months.has(month)) months.set(month, new Map())
+    const days = months.get(month)
+    days.set(day, (days.get(day) || 0) + 1)
+  })
+  return [...byYear.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([year, months]) => ({
+      year,
+      months: [...months.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([month, days]) => ({
+          month,
+          days: [...days.entries()].sort((a, b) => a[0] - b[0])
+        }))
+    }))
 }
 
 /* ------------------------------------------------------------------ *
@@ -398,8 +567,57 @@ const PhotoTab = () => (
 /* ------------------------------------------------------------------ *
  * 通用纸片
  * ------------------------------------------------------------------ */
+/** 页码：Stamp 层的三位补零，只由拿得到全量文章的布局传进来。
+ *  ml-auto 把它推到元信息行末尾，即纸条右下角 */
+const PageNo = ({ n }) =>
+  n ? (
+    <span className='j-page-no j-stamp j-soft ml-auto'>
+      {`P.${String(n).padStart(3, '0')}`}
+    </span>
+  ) : null
+
+/** 读者的铅笔勾：--ink-soft 描边的手绘勾，同 to_do 那种不对称收笔 */
+const CheckDoodle = () => (
+  <svg viewBox='0 0 22 18' width='17' height='14' aria-hidden='true'>
+    <path
+      d='M2.6 9.4c1.8.6 3.2 1.8 4.2 3.6C9.6 9 13 5.2 18 2.6'
+      fill='none'
+      stroke='var(--ink-soft)'
+      strokeWidth='2'
+      strokeLinecap='round'
+    />
+  </svg>
+)
+
+/**
+ * 读者留下的铅笔痕。判据全在 reading.js，这里只负责画：
+ * 没到门槛写「读到 N%」，到了只留一枚勾——同一件事不给两种说法。
+ */
+const ReadMark = ({ pct = 0, last = false }) => {
+  if (!pct) return null
+  if (isRead(pct) && j('JOURNAL_READ_DONE_CHECK', true)) {
+    return (
+      <span className='j-pencil j-stamp flex items-center gap-1 whitespace-nowrap'>
+        <CheckDoodle />
+        读完
+      </span>
+    )
+  }
+  return (
+    <span className='j-pencil j-stamp whitespace-nowrap'>
+      {`${last ? '上次' : ''}读到 ${pct}%`}
+    </span>
+  )
+}
+
 /** 一张胶带纸条式的文章条目；整块可点，标签仍各自可点 */
-function PostSlip({ post, compact = false, hideDate = false }) {
+function PostSlip({
+  post,
+  compact = false,
+  hideDate = false,
+  pageNo = 0,
+  readPct = 0
+}) {
   if (!post) return null
   const tags = post?.tags?.slice(0, 3) || []
   const marks = stateMarks(post)
@@ -465,9 +683,12 @@ function PostSlip({ post, compact = false, hideDate = false }) {
             href={`/tag/${encodeURIComponent(tag)}`}
             className='j-pill j-pill-yellow'
           >
-            {tag}
+            {tagLabel(tag)}
           </SmartLink>
         ))}
+        {/* 四个角已被胶带 / 图钉 / 折角占满，右下角是这张纸唯一的空位 */}
+        <ReadMark pct={readPct} />
+        <PageNo n={pageNo} />
       </div>
     </article>
   )
@@ -556,6 +777,12 @@ function TopBar(props) {
       name: j('JOURNAL_PLOG_TITLE', 'plog'),
       href: '/plog',
       show: j('JOURNAL_NAV_PLOG', true)
+    },
+    {
+      // 默认不进顶栏：入口在归档右栏，胶带导航已经有 6 项
+      name: j('JOURNAL_LEGEND_TITLE', '图例'),
+      href: '/legend',
+      show: j('JOURNAL_NAV_LEGEND', false)
     },
     {
       name: locale?.NAV?.SEARCH || '搜索',
@@ -706,9 +933,18 @@ function LayoutBase(props) {
   )
 }
 
-/** 首页大抬头：手写站名 + 出头下划线 */
-function Masthead() {
+/** 首页大抬头：手写站名 + 出头下划线 + 上次落笔 */
+function Masthead({ lastStroke = '' }) {
   const description = siteConfig('BLOG_DESCRIPTION')
+  const showStroke = lastStroke && j('JOURNAL_LAST_STROKE', true)
+  // 天数只在挂载后补：首帧服务端与客户端逐字符相同，否则撞 hydration。
+  // 无 JS 与打印态那行日期照样在，这是渐进增强不是降级
+  const [idle, setIdle] = useState(null)
+  useEffect(() => {
+    if (!showStroke) return
+    setIdle(idleDays(lastStroke))
+  }, [showStroke, lastStroke])
+
   return (
     <section className='j-masthead'>
       <h1 className='j-marker max-w-[16ch] text-[52px] leading-[1.05] md:text-[68px]'>
@@ -720,6 +956,12 @@ function Masthead() {
       {description && (
         <p className='j-print j-soft mt-3 max-w-[46ch] text-[16px]'>
           {description}
+        </p>
+      )}
+      {showStroke && (
+        <p className='j-stamp j-soft mt-2'>
+          {`上次落笔 ${lastStroke.replace(/-/g, '.')}`}
+          {idle > 0 ? ` · 停笔 ${idle} 天` : ''}
         </p>
       )}
     </section>
@@ -759,16 +1001,29 @@ function LayoutIndex(props) {
   const noteText = j('JOURNAL_RECENT_NOTE', '最近在写这些——')
   const groupDays = j('JOURNAL_DAY_SPREAD', true)
   const maxPerDay = Number(j('JOURNAL_DAY_SPREAD_MAX', 3))
+  // 每次渲染现算，不许模块级缓存：SSR 下模块是跨请求共享的
+  const numbers = useMemo(
+    () => (j('JOURNAL_PAGE_NUMBERS', true) ? pageNumbers(posts) : new Map()),
+    [posts]
+  )
+  const lastStroke = useMemo(() => lastStrokeOf(posts), [posts])
+  const readMarks = useReadMarks()
 
   const renderSlip = post => (
-    <PostSlip key={post?.id || post?.slug} post={post} hideDate={groupDays} />
+    <PostSlip
+      key={post?.id || post?.slug}
+      post={post}
+      hideDate={groupDays}
+      pageNo={numbers.get(post?.id || post?.slug)}
+      readPct={pctOf(readMarks, post)}
+    />
   )
 
   return (
     <main className='j-shell'>
       <div className='grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]'>
         <div>
-          <Masthead />
+          <Masthead lastStroke={lastStroke} />
           <section className='j-section' aria-label={noteText}>
             <BallpointNote>{noteText}</BallpointNote>
             {groupDays ? (
@@ -918,6 +1173,7 @@ function ListHeader({ title, meta, back = true }) {
 }
 
 function PostSlipGrid({ posts = [], empty, className = '' }) {
+  const readMarks = useReadMarks()
   if (!posts.length) {
     return (
       <div className='j-shell'>
@@ -931,7 +1187,11 @@ function PostSlipGrid({ posts = [], empty, className = '' }) {
         className={`j-tilt-group mt-8 grid gap-7 md:grid-cols-2 ${className}`}
       >
         {posts.map((post, i) => (
-          <PostSlip key={post?.id || i} post={post} />
+          <PostSlip
+            key={post?.id || i}
+            post={post}
+            readPct={pctOf(readMarks, post)}
+          />
         ))}
       </div>
     </div>
@@ -1182,7 +1442,32 @@ const SHARE_TEXT_LABELS = {
   link: '复制'
 }
 
-function ShareNote({ post }) {
+/**
+ * 剪报卡的数据源是读者自己框选的那一句，不是编出来的金句。
+ * 首帧 null、挂载后才监听 selectionchange：hydration 纪律同「书签」节。
+ * 只认 #article-wrapper 里的选区——框到导航、分享行、评论不该出一张卡。
+ */
+const useQuoteSelection = () => {
+  const [quote, setQuote] = useState(null)
+
+  useEffect(() => {
+    if (!j('JOURNAL_SHARE_CARDS', true)) return
+    const onChange = () => {
+      const sel = window.getSelection()
+      const text = String(sel?.toString() || '')
+      const host = document.getElementById('article-wrapper')
+      if (!text.trim() || !host || !sel.anchorNode) return setQuote('')
+      if (!host.contains(sel.anchorNode)) return setQuote('')
+      setQuote(clampQuote(text, Number(j('JOURNAL_CARD_QUOTE_MAX', 160))))
+    }
+    document.addEventListener('selectionchange', onChange)
+    return () => document.removeEventListener('selectionchange', onChange)
+  }, [])
+
+  return quote
+}
+
+function ShareNote({ post, quote = '' }) {
   const router = useRouter()
   const { locale } = useGlobal()
   const [liveUrl, setLiveUrl] = useState('')
@@ -1228,6 +1513,16 @@ function ShareNote({ post }) {
 ${decoded}`)
   }
 
+  // 故事卡随时可点；剪报卡要有选区才有——没有选区就没有这一项
+  const cards = []
+  if (j('JOURNAL_SHARE_CARDS', true)) {
+    const story = cardUrl(post, { size: 'story', locale: router?.locale })
+    if (story) cards.push({ key: 'story', label: '故事卡', href: story })
+    const clipping = quote && cardUrl(post, { quote, locale: router?.locale })
+    if (clipping)
+      cards.push({ key: 'clipping', label: '剪报卡', href: clipping })
+  }
+
   const enabled = ['true', true].includes(
     siteConfig('POST_SHARE_BAR_ENABLE', true)
   )
@@ -1263,6 +1558,17 @@ ${decoded}`)
             </a>
           )
         )}
+        {cards.map(card => (
+          <a
+            key={card.key}
+            href={card.href}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='py-2'
+          >
+            {card.label}
+          </a>
+        ))}
       </span>
     </section>
   )
@@ -1272,6 +1578,10 @@ function LayoutSlug(props) {
   const { post, lock, validPassword, prev, next, recommendPosts } = props
   const { locale } = useGlobal()
   const router = useRouter()
+
+  const readMarks = useReadMarks()
+  useProgressRecord(post)
+  const quote = useQuoteSelection()
 
   if (lock) {
     return (
@@ -1287,6 +1597,8 @@ function LayoutSlug(props) {
   if (!post) return null
 
   const ogImage = ogImageUrl(post, router?.locale)
+  const revisedOn = revisedStamp(post)
+  const readPct = pctOf(readMarks, post)
 
   return (
     <>
@@ -1306,6 +1618,12 @@ function LayoutSlug(props) {
             <div className='flex flex-wrap items-center gap-3'>
               <span className='j-stamp-date j-stamp'>{stampMD(post)}</span>
               <span className='j-stamp j-soft'>{stampYear(post)}</span>
+              {/* 只陈述哪天回来改过；判定与左下的修订胶带共用 revisedGap 一处 */}
+              {revisedOn && (
+                <span className='j-stamp j-soft'>{`改于 ${revisedOn}`}</span>
+              )}
+              {/* 铅笔痕属于读者：上一站读到哪儿，这一趟好接着找 */}
+              <ReadMark pct={readPct} last />
               {post?.category && (
                 <SmartLink
                   href={`/category/${encodeURIComponent(post.category)}`}
@@ -1320,7 +1638,7 @@ function LayoutSlug(props) {
                   href={`/tag/${encodeURIComponent(tag)}`}
                   className='j-pill'
                 >
-                  {tag}
+                  {tagLabel(tag)}
                 </SmartLink>
               ))}
             </div>
@@ -1351,7 +1669,7 @@ function LayoutSlug(props) {
             </span>
           </div>
 
-          <ShareNote post={post} />
+          <ShareNote post={post} quote={quote} />
 
           <ArticleAround prev={prev} next={next} />
           {post?.type === 'Post' && recommendPosts?.length > 0 && (
@@ -1375,8 +1693,183 @@ function LayoutSlug(props) {
 
 /* ---------- 归档 ---------- */
 
+/** 落笔格：一年一张尺，落过笔的日子点一枚墨点。
+ *  空白天不补、空白月没有行——与「纸会老」同一条原则；具体日期仍只在摊眉上写 */
+function WritingGrid({ posts = [] }) {
+  const grids = useMemo(() => yearGrids(posts), [posts])
+  if (!j('JOURNAL_WRITING_GRID', true) || !grids.length) return null
+
+  return (
+    <div className='j-note p-5'>
+      <div className='j-stamp'>{j('JOURNAL_GRID_TITLE', '落笔格')}</div>
+      {grids.map(group => (
+        <section key={group.year} className='mt-3'>
+          <div className='j-hand text-[19px]'>{group.year}</div>
+          {group.months.map(m => (
+            <div key={m.month} className='j-cal-row mt-1'>
+              <span className='j-stamp j-soft'>
+                {String(m.month).padStart(2, '0')}
+              </span>
+              <span className='j-cal-ruler' aria-hidden='true'>
+                {m.days.map(([day, n]) => (
+                  <i
+                    key={day}
+                    className={`j-cal-dot${n > 1 ? ' j-cal-dot-2' : ''}`}
+                    style={{ left: `${((day - 0.5) / 31) * 100}%` }}
+                  />
+                ))}
+              </span>
+              <span className='j-cal-count j-stamp j-soft'>
+                {`${m.days.reduce((sum, [, n]) => sum + n, 0)} 张`}
+              </span>
+            </div>
+          ))}
+        </section>
+      ))}
+    </div>
+  )
+}
+
+/** 读者的今天：本地日期，不是 UTC 也不是构建快照——纸龄那格是作者的时间轴，这一格是读者的 */
+const localDay = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`
+
+/** 同月同日、年份更早的才算「往年今天」；2/29 不往前补到 2/28，补出来的日期是假的 */
+const echoYears = (posts = [], today = '') => {
+  if (!today) return []
+  const mmdd = today.slice(5)
+  const thisYear = Number(today.slice(0, 4))
+  return posts
+    .map(post => ({ post, key: dayKey(postDate(post)) }))
+    .filter(({ key }) => key.slice(5) === mmdd && key.length === 10)
+    .map(entry => ({ ...entry, ago: thisYear - Number(entry.key.slice(0, 4)) }))
+    .filter(entry => entry.ago > 0)
+    .sort((a, b) => a.ago - b.ago)
+}
+
+/** 往年的今天：只住在归档右栏，因为别处没有全集（首页的 posts 是当页 12 张） */
+function EchoNote({ posts = [] }) {
+  // 今天来自读者的浏览器：SSR 与首帧都没有这张便条，无 JS 就没有——渐进增强
+  const [today, setToday] = useState(null)
+  useEffect(() => {
+    if (j('JOURNAL_ON_THIS_DAY', true)) setToday(localDay())
+  }, [])
+  const echoes = useMemo(() => echoYears(posts, today), [posts, today])
+
+  if (!j('JOURNAL_ON_THIS_DAY', true) || !echoes.length) return null
+
+  return (
+    <StickyNote title={j('JOURNAL_ECHO_TITLE', '往年的今天')}>
+      <div className='grid gap-2'>
+        {echoes
+          .slice(0, Number(j('JOURNAL_ON_THIS_DAY_COUNT', 3)))
+          .map(({ post, ago }) => (
+            <div
+              key={post?.id || post?.slug}
+              className='flex items-baseline gap-2'
+            >
+              <span className='j-stamp j-soft whitespace-nowrap'>
+                {`${ago} 年前`}
+              </span>
+              <SmartLink href={postHref(post)} className='j-hand text-[18px]'>
+                {post.title}
+              </SmartLink>
+            </div>
+          ))}
+      </div>
+    </StickyNote>
+  )
+}
+
+/** 一个连载 = 一个前缀标签。话数按 (发表日, slug) 升序，与页码同一把尺；
+ *  辑序按首话日期降序，最近开辑的排前面 */
+const seriesGroups = (posts = []) => {
+  const min = Number(j('JOURNAL_SERIES_MIN', 2)) || 2
+  const map = new Map()
+  posts.forEach(post => {
+    const series = seriesOf(post)
+    if (!series) return
+    if (!map.has(series.name)) map.set(series.name, [])
+    map.get(series.name).push(post)
+  })
+  return [...map.entries()]
+    .map(([name, items]) => ({
+      name,
+      posts: items
+        .map(post => ({
+          post,
+          key: dayKey(postDate(post)),
+          slug: String(post?.slug || post?.id || '')
+        }))
+        .sort((a, b) =>
+          a.key === b.key ? cmp(a.slug, b.slug) : cmp(a.key, b.key)
+        )
+    }))
+    .filter(group => group.posts.length >= min)
+    .sort((a, b) =>
+      cmp(String(b.posts[0]?.key), String(a.posts[0]?.key))
+    )
+}
+
+/** 连载清单：住在归档右栏，因为别处没有全集（口径同「往年的今天」） */
+function SeriesNote({ posts = [] }) {
+  const series = useMemo(() => seriesGroups(posts), [posts])
+  if (!series.length) return null
+
+  return (
+    <StickyNote title={j('JOURNAL_SERIES_TITLE', '连载')}>
+      <div className='grid gap-3'>
+        {series.map(group => (
+          <div key={group.name}>
+            <div className='flex items-baseline gap-2'>
+              <SmartLink
+                href={`/tag/${encodeURIComponent(
+                  `${j('JOURNAL_SERIES_PREFIX', '连载:')}${group.name}`
+                )}`}
+                className='j-hand text-[19px]'
+              >
+                {group.name}
+              </SmartLink>
+              <span className='j-stamp j-soft whitespace-nowrap'>
+                {`${group.posts.length} 话`}
+              </span>
+            </div>
+            <div className='mt-1 grid gap-1'>
+              {group.posts.map(({ post, key }, i) => (
+                <div
+                  key={post?.id || post?.slug}
+                  className='flex items-baseline gap-2'
+                >
+                  <span className='j-stamp j-soft whitespace-nowrap'>
+                    {`第 ${i + 1} 话 · ${mdOf(key) || '--.--'}`}
+                  </span>
+                  <SmartLink
+                    href={postHref(post)}
+                    className='j-hand text-[17px]'
+                  >
+                    {post.title}
+                  </SmartLink>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </StickyNote>
+  )
+}
+
 function LayoutArchive(props) {
   const { posts = [] } = props
+
+  const numbers = useMemo(
+    () => (j('JOURNAL_PAGE_NUMBERS', true) ? pageNumbers(posts) : new Map()),
+    [posts]
+  )
+
+  const readMarks = useReadMarks()
 
   const byYear = useMemo(() => {
     const map = new Map()
@@ -1461,9 +1954,11 @@ function LayoutArchive(props) {
                                 href={`/tag/${encodeURIComponent(post.tags[0])}`}
                                 className='j-pill j-pill-yellow'
                               >
-                                {post.tags[0]}
+                                {tagLabel(post.tags[0])}
                               </SmartLink>
                             )}
+                            <ReadMark pct={pctOf(readMarks, post)} />
+                            <PageNo n={numbers.get(post?.id || post?.slug)} />
                           </div>
                         </div>
                       )}
@@ -1478,18 +1973,34 @@ function LayoutArchive(props) {
 
       <div className='j-tilt-slow grid content-start gap-7'>
         <StickyNote title='按年份跳转'>
-          <div className='j-hand flex flex-wrap gap-3 text-[18px]'>
+          <div className='j-hand flex flex-wrap items-baseline gap-3 text-[18px]'>
             {byYear.map(([year]) => (
-              <a key={year} href={`#archive-${year}`}>
-                {year}
-              </a>
+              <span key={year} className='flex items-baseline gap-1'>
+                <a href={`#archive-${year}`}>{year}</a>
+                {j('JOURNAL_YEARBOOK', true) && (
+                  <SmartLink
+                    href={`/year/${year}`}
+                    className='j-stamp j-soft text-[13px]'
+                  >
+                    年刊 →
+                  </SmartLink>
+                )}
+              </span>
             ))}
           </div>
         </StickyNote>
+        <WritingGrid posts={posts} />
+        <EchoNote posts={posts} />
+        <SeriesNote posts={posts} />
         <div className='j-note p-5'>
           <div className='j-stamp'>本站统计</div>
           <div className='j-print mt-2 text-[15px]'>
             {posts.length} 篇文章 · {byYear.length} 个年份
+          </div>
+          <div className='j-hand mt-3 text-[17px]'>
+            <SmartLink href='/legend'>
+              {`${j('JOURNAL_LEGEND_TITLE', '图例')}：这些标记各是什么意思 →`}
+            </SmartLink>
           </div>
         </div>
       </div>
@@ -1750,6 +2261,365 @@ function LayoutPlog(props) {
 
 /* ---------- 404 / 500 / 认证页共用的大胶带纸 ---------- */
 
+/* 图例页第二节：不来自 stateMarks 的那些语法。「今天看不看得见」只写数据源
+   实际落在哪一页，不写猜测——段落颜色根本不在列表 props 里 */
+const LEGEND_SYNTAX = [
+  {
+    name: '红字批注',
+    how: 'Notion 里把整段文字设成红色',
+    today: '只在文章正文里；列表拿不到段落颜色'
+  },
+  {
+    name: '段落荧光笔划',
+    how: 'Notion 里给整段设红色底（red_background）',
+    today: '同上，只在文章正文里'
+  },
+  {
+    name: '侧伸的索引贴（目录）',
+    how: '文章正文里有二级以上标题就自己长出来',
+    today: '文章页左栏；没有标题就没有这一栏'
+  },
+  {
+    name: '铅笔连线（上 / 下一篇）',
+    how: '按发表顺序取相邻的两篇，两篇俱在才画',
+    today: '文章页底部，hr 之后'
+  },
+  {
+    name: '书签 · 读完的勾',
+    how: '不是 Notion 字段：是你在本站的滚动进度，只写在你自己浏览器的本地存储里，不上传',
+    today: '本机决定。没读过就没有痕，看不见也不说明这篇文章有问题'
+  },
+  {
+    name: '一天一摊',
+    how: '同一天发的合成一张跨页，中间一道装订中缝',
+    today: '首页与归档；首页一天最多摊 3 张，多余的写「这天还有 N 张」'
+  },
+  {
+    name: '连载',
+    how: '给文章打一个以 JOURNAL_SERIES_PREFIX（默认「连载:」）开头的标签，前缀之后那截就是连载名',
+    today: '话数按发表日排，早的是第 1 话；清单在归档右栏，不足 2 话不成辑，标签胶囊写成「连载 · 名字」'
+  },
+  {
+    name: '纸会老',
+    how: '发表日距今多少天，构建期定格，之后不刷新',
+    today: '越旧的纸条墨边越淡'
+  },
+  {
+    name: '按年装订',
+    how: '发表日的年份',
+    today: '归档页一年一摞，摞上两枚订书钉；每年那一摞还能单开一册：/year/[年份]'
+  },
+  {
+    name: '页码 P.0XX',
+    how: '全站已发布文章按 (日期, slug) 排序编号',
+    today:
+      '首页纸条右下角与归档行行尾；文章页刻意不印，分类 / 标签 / 搜索也不印'
+  },
+  {
+    name: '落笔格',
+    how: '发表日按年铺成一把 1—31 的尺，落过笔的日子点墨点',
+    today: '归档右栏'
+  },
+  {
+    name: '上次落笔 · 停笔 N 天',
+    how: '全本站最大的发表日',
+    today: '首页扉页那行等宽小字'
+  }
+]
+
+/** 图例页：本子自己写的说明书。样例一律取真实文章，命中 0 的照实写没用上 */
+function LayoutLegend(props) {
+  const { posts = [] } = props
+  const counts = useMemo(() => markCounts(posts), [posts])
+  const numbers = useMemo(() => pageNumbers(posts), [posts])
+  const lastStroke = useMemo(() => lastStrokeOf(posts), [posts])
+  const years = useMemo(
+    () =>
+      [...new Set(posts.map(post => stampYear(post)))].filter(
+        y => y !== '未日期'
+      ),
+    [posts]
+  )
+
+  const sampleOf = key =>
+    posts.find(post => stateMarks(post).some(mark => mark.key === key))
+
+  // 只列日期与计数：停笔天数走 Date.now()，按扉页那套「挂载后再补」的规矩，
+  // 这一页不做两步渲染，直接不写天数
+  const stats = [
+    ['纸的张数', `${posts.length} 张`],
+    ['按年装订', `${years.length} 个年份`],
+    ['上次落笔', lastStroke ? lastStroke.replace(/-/g, '.') : '还没有日期']
+  ]
+  if (j('JOURNAL_PAGE_NUMBERS', true) && numbers.size) {
+    stats.push(['页码编到', `P.${String(numbers.size).padStart(3, '0')}`])
+  }
+
+  return (
+    <main className='j-shell grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_280px]'>
+      <div>
+        <h1 className='j-marker text-[48px] leading-none md:text-[58px]'>
+          {j('JOURNAL_LEGEND_TITLE', '图例')}
+        </h1>
+        <div className='max-w-[20ch]'>
+          <HandRule />
+        </div>
+        <p className='j-print j-soft mt-2 max-w-[46ch]'>
+          {j('JOURNAL_LEGEND_SUBTITLE', '')}
+        </p>
+
+        <section className='j-section mt-9'>
+          <BallpointNote>状态标记：纸上的胶带、图钉、红圈</BallpointNote>
+          <div className='mt-5 grid gap-7'>
+            {LEGEND_KEYS.map(item => {
+              const sample = sampleOf(item.key)
+              const n = counts.get(item.key) || 0
+              return (
+                <section key={item.key} className='j-legend-row'>
+                  <div className='j-tilt-group'>
+                    {sample && <PostSlip post={sample} compact hideDate />}
+                  </div>
+                  <div>
+                    <h2 className='j-hand text-[21px]'>{markName(item)}</h2>
+                    <p className='j-print mt-1 text-[15px]'>{item.how}</p>
+                    <p className='j-print j-soft text-[15px]'>{item.where}</p>
+                    <p className='j-stamp j-soft mt-1'>
+                      {n
+                        ? `今天有 ${n} 张纸带上它`
+                        : '这个标记今天还没用上——不是坏了，是还没写上'}
+                    </p>
+                  </div>
+                </section>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className='j-section mt-12'>
+          <BallpointNote>其它语法：Notion 里怎么触发</BallpointNote>
+          <div className='mt-5 grid gap-4'>
+            {LEGEND_SYNTAX.map(item => (
+              <div key={item.name} className='j-legend-line'>
+                <h2 className='j-hand text-[19px]'>{item.name}</h2>
+                <p className='j-print text-[15px]'>{item.how}</p>
+                <p className='j-print j-soft text-[15px]'>{item.today}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className='j-tilt-slow grid content-start gap-7'>
+        <StickyNote title='本子现状'>
+          <div className='j-legend-stats'>
+            {stats.map(([name, value]) => (
+              <div key={name}>
+                <span className='j-stamp j-soft'>{name}</span>
+                <span className='j-hand ml-2 text-[18px]'>{value}</span>
+              </div>
+            ))}
+          </div>
+        </StickyNote>
+        <div className='j-note p-5'>
+          <div className='j-stamp'>这一页为什么存在</div>
+          <p className='j-print mt-2 text-[15px] leading-7'>
+            每一个标记都有真实数据源，没人手画的装饰。所以命中数是 0
+            的时候，这一页照样把它列出来：那是内容还没长到那儿，不是语法坏了。
+          </p>
+          <div className='j-hand mt-3 text-[17px]'>
+            <SmartLink href='/archive'>回到归档</SmartLink>
+          </div>
+        </div>
+      </div>
+    </main>
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * 年刊 /year/[year]：把一年印成一册
+ * 规格见 design-system/journal/MASTER.md「年刊」节
+ * ------------------------------------------------------------------ */
+
+/** 一册只收有发表日的纸：没日期的那几张不编进任何一年，也不给它们造一个年份 */
+const yearOfPost = post => {
+  const key = dayKey(postDate(post))
+  return key.length === 10 ? key.slice(0, 4) : ''
+}
+
+/** 本站有哪几册：年份降序，最近那册排前面 */
+const bookYears = (posts = []) =>
+  [...new Set(posts.map(yearOfPost))]
+    .filter(Boolean)
+    .sort((a, b) => cmp(b, a))
+
+/** 册内按月升序——册子从头翻，归档倒着找 */
+const yearMonths = (posts = [], year = '') => {
+  const map = new Map()
+  posts
+    .filter(post => yearOfPost(post) === year)
+    .forEach(post => {
+      const month = dayKey(postDate(post)).slice(0, 7)
+      if (!map.has(month)) map.set(month, [])
+      map.get(month).push(post)
+    })
+  return [...map.entries()].sort((a, b) => cmp(a[0], b[0]))
+}
+
+/** 册尾统计：每个数都从这一年的纸上手数；算不出来的（字数、热度）一律不写 */
+const yearStats = (posts = [], year = '') => {
+  const months = yearMonths(posts, year)
+  const items = months.flatMap(([, list]) => list)
+  const days = items.map(post => dayKey(postDate(post))).sort(cmp)
+  const busiest = months.reduce(
+    (best, [month, list]) =>
+      !best || list.length > best.count ? { month, count: list.length } : best,
+    null
+  )
+  return {
+    total: items.length,
+    months: months.length,
+    first: days[0] || '',
+    last: days[days.length - 1] || '',
+    busiest,
+    marks: markCounts(items)
+  }
+}
+
+/** 一册里用到的状态标记：只数命中的，没命中的那档不占行 */
+const usedMarks = marks =>
+  LEGEND_KEYS.map(item => ({
+    name: markName(item),
+    n: marks.get(item.key) || 0
+  })).filter(item => item.n > 0)
+
+function LayoutYearbook(props) {
+  const { posts = [], year = '' } = props
+  const numbers = useMemo(
+    () => (j('JOURNAL_PAGE_NUMBERS', true) ? pageNumbers(posts) : new Map()),
+    [posts]
+  )
+  const months = useMemo(() => yearMonths(posts, year), [posts, year])
+  const stats = useMemo(() => yearStats(posts, year), [posts, year])
+  const years = useMemo(() => bookYears(posts), [posts])
+  const readMarks = useReadMarks()
+
+  if (!j('JOURNAL_YEARBOOK', true)) return null
+
+  const at = years.indexOf(year)
+  const newer = at > 0 ? years[at - 1] : ''
+  const older = at > -1 && at < years.length - 1 ? years[at + 1] : ''
+  const rows = [
+    ['第一张', stats.first ? mdOf(stats.first) : '没有日期'],
+    ['最后一张', stats.last ? mdOf(stats.last) : '没有日期']
+  ]
+  if (stats.busiest && stats.busiest.count > 1) {
+    // 每月都只有一张时「最密的月」是句废话：不写
+    rows.push([
+      '落笔最密的月',
+      `${Number(stats.busiest.month?.slice(5))} 月 · ${stats.busiest.count} 张`
+    ])
+  }
+
+  const empty = months.length === 0
+
+  return (
+    <main className='j-shell grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_280px]'>
+      <div>
+        <h1 className='j-marker text-[48px] leading-none md:text-[58px]'>
+          {`${year} ${j('JOURNAL_YEARBOOK_LABEL', '年刊')}`}
+        </h1>
+        <div className='max-w-[20ch]'>
+          <HandRule />
+        </div>
+        <p className='j-print j-soft mt-2'>
+          {`${stats.total} 张纸 · ${stats.months} 个月落过笔`}
+        </p>
+
+        {empty ? (
+          <div className='j-slip j-tape-single mt-9 px-6 py-10 text-center'>
+            <p className='j-hand j-blue text-[22px]'>这一册是空的。</p>
+            <p className='j-print j-soft mt-2 text-[15px]'>
+              本站有年份可翻的是：
+              {years.join('、') || '还没有一年攒得起来'}
+            </p>
+          </div>
+        ) : (
+          months.map(([month, items]) => (
+            <section key={month} id={`book-${month}`} className='j-book-month'>
+              <h2 className='j-hand j-blue mt-9 text-[22px]'>
+                {`${Number(month.slice(5))} 月 · ${items.length} 张`}
+              </h2>
+              <div className='j-days mt-3'>
+                {dayGroups(items).map(group => (
+                  <DaySpread
+                    key={group.key}
+                    group={group}
+                    head={
+                      <span className='j-day-week j-hand j-blue'>
+                        {weekOf(group.key)}
+                      </span>
+                    }
+                    render={post => (
+                      <PostSlip
+                        post={post}
+                        pageNo={numbers.get(post?.id || post?.slug)}
+                        readPct={pctOf(readMarks, post)}
+                      />
+                    )}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
+        )}
+      </div>
+
+      {!empty && (
+        <div className='j-tilt-slow grid content-start gap-7'>
+          <StickyNote title={`${year} 这一册`}>
+            <div className='j-legend-stats'>
+              {rows.map(([name, value]) => (
+                <div key={name}>
+                  <span className='j-stamp j-soft'>{name}</span>
+                  <span className='j-hand ml-2 text-[18px]'>{value}</span>
+                </div>
+              ))}
+            </div>
+            <div className='mt-3 grid gap-1'>
+              {usedMarks(stats.marks).map(item => (
+                <span key={item.name} className='j-stamp j-soft'>
+                  {`${item.name} · ${item.n} 张`}
+                </span>
+              ))}
+            </div>
+          </StickyNote>
+          <StickyNote title='相邻的册' className='j-book-nav'>
+            <div className='j-hand flex flex-wrap gap-3 text-[18px]'>
+              {newer && (
+                <SmartLink href={`/year/${newer}`}>{`← ${newer}`}</SmartLink>
+              )}
+              {older && (
+                <SmartLink href={`/year/${older}`}>{`${older} →`}</SmartLink>
+              )}
+              {!newer && !older && (
+                <span className='j-print text-[15px]'>
+                  这本子只攒了一册
+                </span>
+              )}
+            </div>
+          </StickyNote>
+          <div className='j-note j-book-nav p-5'>
+            <div className='j-stamp'>打印这一册</div>
+            <p className='j-print mt-2 text-[15px] leading-7'>
+              浏览器的打印预览里一个月开一页；屏幕上是连着滚的一趟。
+            </p>
+          </div>
+        </div>
+      )}
+    </main>
+  )
+}
+
 function BigTapedPaper({ children }) {
   return (
     <main className='j-shell grid min-h-[60vh] place-items-center py-16'>
@@ -1848,6 +2718,7 @@ export {
   LayoutCategoryIndex,
   LayoutDashboard,
   LayoutIndex,
+  LayoutLegend,
   LayoutPlog,
   LayoutPostList,
   LayoutSearch,
@@ -1855,5 +2726,15 @@ export {
   LayoutSignUp,
   LayoutSlug,
   LayoutTagIndex,
-  CONFIG as THEME_CONFIG
+  LayoutYearbook,
+  CONFIG as THEME_CONFIG,
+  // 「往年的今天」「连载」「年刊」的判据：导出只为让护栏能直接问它们，站内没有第二个调用方
+  echoYears,
+  localDay,
+  seriesOf,
+  seriesGroups,
+  tagLabel,
+  bookYears,
+  yearMonths,
+  yearStats
 }

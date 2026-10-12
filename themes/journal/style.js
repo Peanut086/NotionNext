@@ -938,6 +938,99 @@ export const Style = () => {
         outline-offset: 3px;
       }
 
+      /* ---------- 3i. 元信息：页码 / 落笔格 / 图例 ---------- *
+         三样都只讲「本子自己的状态」，共用一条规矩：只用已有材质，
+         不新增颜色 token，密度不抢红——红是邮戳与作者批注的档位 */
+
+      /* 页码：Stamp 层 + 淡墨，靠 ml-auto 落到纸条右下角。
+         四个角已被胶带 / 图钉 / 折角 / 补贴胶带占满，右下角是唯一空位 */
+      #theme-journal .j-page-no {
+        white-space: nowrap;
+      }
+
+      /* 落笔格：一个月一行，中间一把 1—31 的尺。
+         刻度用 repeating-linear-gradient（同「撕线」那条规矩：不用
+         radial-gradient 造孔），尺线是一道淡墨，墨点单独定位 */
+      #theme-journal .j-cal-row {
+        display: grid;
+        grid-template-columns: 22px minmax(0, 1fr) 34px;
+        align-items: center;
+        gap: 8px;
+      }
+      #theme-journal .j-cal-ruler {
+        position: relative;
+        height: 16px;
+      }
+      #theme-journal .j-cal-ruler::before {
+        content: '';
+        position: absolute;
+        top: 9px;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background-image: repeating-linear-gradient(
+          to right,
+          var(--ink-soft) 0 1px,
+          transparent 1px calc(100% / 31)
+        );
+        opacity: 0.55;
+      }
+      #theme-journal .j-cal-ruler::after {
+        content: '';
+        position: absolute;
+        top: 15px;
+        left: 0;
+        right: 0;
+        border-bottom: 1.5px solid var(--ink-soft);
+        transform: rotate(-0.25deg);
+      }
+      #theme-journal .j-cal-dot {
+        position: absolute;
+        top: 2px;
+        width: 7px;
+        height: 7px;
+        margin-left: -3.5px;
+        background: var(--ink);
+        border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%;
+      }
+      /* 一天两篇 → 同一位点画大点，不并排画两点 */
+      #theme-journal .j-cal-dot-2 {
+        top: 0;
+        width: 11px;
+        height: 11px;
+        margin-left: -5.5px;
+      }
+      #theme-journal .j-cal-count {
+        text-align: right;
+      }
+
+      /* 图例页：左「真实样例」右「名字 + 数据来源 + 今日命中数」 */
+      #theme-journal .j-legend-row {
+        display: grid;
+        align-items: center;
+        gap: 10px 20px;
+      }
+      #theme-journal .j-legend-line {
+        border-left: 2px solid var(--ink-soft);
+        padding-left: 12px;
+      }
+
+      @media (min-width: 768px) {
+        #theme-journal .j-legend-row {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+        }
+      }
+
+      /* ---------- 3j. 读者的铅笔痕：书签 / 读完的勾 ---------- *
+         红=作者、蓝=可点、黄=分类，三档已满；读者的痕迹只能是第四档铅笔，
+         所以直接取 --ink-soft，不新增颜色 token。勾用不对称收笔的手绘线 */
+      #theme-journal .j-pencil {
+        color: var(--ink-soft);
+      }
+      #theme-journal .j-pencil svg {
+        flex: none;
+      }
+
       /* ---------- 4. 按钮 / 表单 ---------- */
       #theme-journal .j-btn {
         display: inline-flex;
@@ -1433,6 +1526,11 @@ export const Style = () => {
         #theme-journal .j-arch-row .j-mark + .j-mark {
           display: none;
         }
+        /* 页码在窄屏同样抢标题的宽度，而归档行的页码只在「对照目录页」时才有用。
+           首页纸条跟着列表竖排，宽度不紧张，那里的页码照留 */
+        #theme-journal .j-arch-row .j-page-no {
+          display: none;
+        }
       }
 
       /* ---------- 8. 减弱动效 ---------- */
@@ -1512,9 +1610,22 @@ export const Style = () => {
         #theme-journal .j-field,
         #theme-journal .j-drawer-handle,
         #theme-journal .j-drawer-label,
+        /* 读者的铅笔痕由客户端补上，纸面上不该出现读者的阅读进度 */
+        #theme-journal .j-pencil,
+        /* 年刊的相邻册与「打印这一册」提示：屏幕上的导航，印出来是废话 */
+        #theme-journal .j-book-nav,
         #theme-journal .notion-code-copy,
         #theme-journal .notion-simple-table-wrapper > button {
           display: none;
+        }
+
+        /* 年刊：屏幕上是连着滚的一趟，打印时一个月开一页。
+           首月不硬开空页——第一个 break-before 会印出一张白皮 */
+        #theme-journal .j-book-month {
+          break-before: page;
+        }
+        #theme-journal .j-book-month:first-of-type {
+          break-before: auto;
         }
 
         /* 胶带与状态装饰：底色不印，留下的只是占位 */
@@ -1581,6 +1692,25 @@ export const Style = () => {
         #theme-journal .notion-simple-table th {
           border-color: var(--ink) !important;
           border-width: 1px !important;
+        }
+
+        /* 落笔格整张都是 background：尺上的刻度与墨点纸上印不出来。
+           刻度换成一条铅笔点线（位点本来就是等分的，纸上不需要数得出来），
+           墨点换成空心圈——点还在、位置还在，只是不填墨 */
+        #theme-journal .j-cal-ruler::before {
+          background-image: none;
+          top: 8px;
+          height: 0;
+          opacity: 1;
+          border-top: 1.5px dotted var(--ink);
+        }
+        #theme-journal .j-cal-ruler::after {
+          border-bottom-color: var(--ink);
+        }
+        #theme-journal .j-cal-dot,
+        #theme-journal .j-cal-dot-2 {
+          background: none;
+          border: 1.4px solid var(--ink);
         }
 
         /* 荧光笔是 linear-gradient，同理在纸上消失。

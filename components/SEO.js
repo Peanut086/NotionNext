@@ -479,6 +479,22 @@ const getSEOMeta = (props, router, locale) => {
         slug: 'plog',
         type: 'website'
       }
+    case '/legend':
+      return {
+        title: `图例 | ${siteInfo?.title}`,
+        description: `${siteInfo?.description}`,
+        image: `${siteInfo?.pageCover}`,
+        slug: 'legend',
+        type: 'website'
+      }
+    case '/year/[year]':
+      return {
+        title: `${router?.query?.year} 年刊 | ${siteInfo?.title}`,
+        description: `${siteInfo?.description}`,
+        image: `${siteInfo?.pageCover}`,
+        slug: `year/${router?.query?.year}`,
+        type: 'website'
+      }
     default:
       const category = Array.isArray(post?.category)
         ? post?.category?.[0]
