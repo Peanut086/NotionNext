@@ -756,6 +756,34 @@ export const Style = () => {
         background-repeat: no-repeat;
       }
 
+      /* ---------- 3h. 段落荧光笔划：Notion 段落红底 = 作者划了一道 ---------- *
+         语法是 background_color=red_background，react-notion-x 把取值原样拼进类名，
+         落到 .notion-text.notion-red_background。上游给的是整块浅粉（且不随 j-night
+         变，夜间实测浅字压浅底 1.02:1），这里翻成「一行一道」的荧光笔：
+         repeating-linear-gradient 把周期烧进渐变，1 个周期 = 1 行。
+         三个数是换算来的，不是调出来的：周期 1.9em = 行高；带高 0.62×1.9=1.178；
+         起点 0.78×(1-0.62)×1.9=0.563——后两个比例与 .j-highlight 同源，
+         所以段级划和词级划看起来是同一支笔。em 相对 font-size，换字号不用改数字。
+         line-height 必须在本规则里写死（不靠从 .j-print 继承）：周期一旦与行高分家，
+         带子就逐行累积错位。color 同理——styles/notion.css 那句 .dark 的 text-black
+         压不过本主题的 ID 规则，别人的兜底挡在继承链上，等于没有。
+         background-origin: content-box：notion.css 给 .notion-text 写了
+         padding: 3px 2px !important，默认 padding-box 会让首条带子上移 3px 与文字错开。
+         background-color 要显式清：上游动的是 background-color，只覆盖 image 的话
+         粉纸会留在笔划底下。 */
+      #theme-journal .notion-text.notion-red_background {
+        background-color: transparent;
+        background-image: repeating-linear-gradient(
+          180deg,
+          transparent 0 0.563em,
+          var(--yellow) 0.563em 1.741em,
+          transparent 1.741em 1.9em
+        );
+        background-origin: content-box;
+        line-height: 1.9;
+        color: var(--ink);
+      }
+
       /* 便利贴黄 */
       #theme-journal .j-note {
         background: var(--yellow);
@@ -1548,9 +1576,13 @@ export const Style = () => {
         }
 
         /* 荧光笔是 linear-gradient，同理在纸上消失。
-           蓝是圆珠笔色，纸上「划两道」正是笔的语法，所以降级成双下划线 */
+           蓝是圆珠笔色，纸上「划两道」正是笔的语法，所以降级成双下划线。
+           段落划（.notion-red_background）与命中划共用这一条：同一个物理对象在纸上
+           只该有一种译法，而 text-decoration 在块级本来就逐行画——正好接住
+           「一行一道」的段落语法，不需要另设一份 */
         #theme-journal .j-highlight,
-        #theme-journal mark.j-marker-hit {
+        #theme-journal mark.j-marker-hit,
+        #theme-journal .notion-text.notion-red_background {
           background: none;
           text-decoration: underline;
           text-decoration-style: double;
