@@ -65,6 +65,26 @@ const postHref = post => {
 
 const isLocked = post => !!post?.password
 
+/**
+ * OG 卡绝对 URL（B 案接线，规格见 MASTER「接线决定」节）。
+ * LINK 不是绝对 http(s) 时返回 null → 不注入，og:image 落回 SEO.js 现状值
+ */
+const ogImageUrl = (post, localeTag) => {
+  // 静态导出没有 pages/api，/api/og 会 404 → 整体退回 SEO.js 现状值
+  if (process.env.EXPORT === 'true') return null
+  if (!j('JOURNAL_OG_CARD', true) || !post?.title) return null
+  const base = (siteConfig('LINK', '') || '').trim().replace(/\/+$/, '')
+  if (!/^https?:\/\//i.test(base)) return null
+  const q = new URLSearchParams({ title: post.title })
+  const date = dayKey(postDate(post))
+  if (date) q.set('date', date)
+  if (post.category) q.set('category', post.category)
+  const states = stateMarks(post).map(m => m.key)
+  if (states.length) q.set('state', states.join(','))
+  if (localeTag) q.set('locale', localeTag)
+  return `${base}/api/og?${q.toString()}`
+}
+
 const j = (key, fallback) => siteConfig(key, fallback, CONFIG)
 
 const dayKey = value => {
@@ -1246,6 +1266,7 @@ ${decoded}`)
 function LayoutSlug(props) {
   const { post, lock, validPassword, prev, next, recommendPosts } = props
   const { locale } = useGlobal()
+  const router = useRouter()
 
   if (lock) {
     return (
@@ -1260,85 +1281,90 @@ function LayoutSlug(props) {
 
   if (!post) return null
 
-  return (
-    <main className='j-shell grid grid-cols-[minmax(0,1fr)] gap-8 py-10 lg:grid-cols-[220px_minmax(0,1fr)]'>
-      <ArticleToc post={post} />
+  const ogImage = ogImageUrl(post, router?.locale)
 
-      {/* 必须显式占第二列：ArticleToc 在没有目录时返回 null，
+  return (
+    <>
+      <Head>{ogImage && <meta property='og:image' content={ogImage} />}</Head>
+      <main className='j-shell grid grid-cols-[minmax(0,1fr)] gap-8 py-10 lg:grid-cols-[220px_minmax(0,1fr)]'>
+        <ArticleToc post={post} />
+
+        {/* 必须显式占第二列：ArticleToc 在没有目录时返回 null，
           届时本元素会成为网格第一个子元素，被自动放进 220px 的边栏列，
           正文压到 136px 且被 #notion-article 的 overflow-hidden 剪掉 */}
-      <article
-        className={`j-slip j-tape px-5 py-8 md:px-10 md:py-12 lg:col-start-2 ${paperAge(
-          dayKey(postDate(post))
-        )}`}
-      >
-        <header className='mb-8'>
-          <div className='flex flex-wrap items-center gap-3'>
-            <span className='j-stamp-date j-stamp'>{stampMD(post)}</span>
-            <span className='j-stamp j-soft'>{stampYear(post)}</span>
-            {post?.category && (
-              <SmartLink
-                href={`/category/${encodeURIComponent(post.category)}`}
-                className='j-pill j-pill-yellow'
-              >
-                {post.category}
-              </SmartLink>
-            )}
-            {post?.tags?.map(tag => (
-              <SmartLink
-                key={tag}
-                href={`/tag/${encodeURIComponent(tag)}`}
-                className='j-pill'
-              >
-                {tag}
-              </SmartLink>
-            ))}
+        <article
+          className={`j-slip j-tape px-5 py-8 md:px-10 md:py-12 lg:col-start-2 ${paperAge(
+            dayKey(postDate(post))
+          )}`}
+        >
+          <header className='mb-8'>
+            <div className='flex flex-wrap items-center gap-3'>
+              <span className='j-stamp-date j-stamp'>{stampMD(post)}</span>
+              <span className='j-stamp j-soft'>{stampYear(post)}</span>
+              {post?.category && (
+                <SmartLink
+                  href={`/category/${encodeURIComponent(post.category)}`}
+                  className='j-pill j-pill-yellow'
+                >
+                  {post.category}
+                </SmartLink>
+              )}
+              {post?.tags?.map(tag => (
+                <SmartLink
+                  key={tag}
+                  href={`/tag/${encodeURIComponent(tag)}`}
+                  className='j-pill'
+                >
+                  {tag}
+                </SmartLink>
+              ))}
+            </div>
+
+            <h1 className='j-hand mt-5 text-[28px] leading-tight md:text-[34px]'>
+              {siteConfig('POST_TITLE_ICON') && (
+                <NotionIcon icon={post.pageIcon} />
+              )}{' '}
+              {post.title}
+            </h1>
+            <div className='max-w-[30ch]'>
+              <HandRule />
+            </div>
+          </header>
+
+          {post?.aiSummary && <AISummary aiSummary={post.aiSummary} />}
+
+          <div id='article-wrapper' className='j-print'>
+            <NotionPage post={post} />
           </div>
 
-          <h1 className='j-hand mt-5 text-[28px] leading-tight md:text-[34px]'>
-            {siteConfig('POST_TITLE_ICON') && (
-              <NotionIcon icon={post.pageIcon} />
-            )}{' '}
-            {post.title}
-          </h1>
-          <div className='max-w-[30ch]'>
-            <HandRule />
+          <hr className='j-dashed-rule' />
+
+          <div className='j-hand j-red text-[19px]'>
+            {locale?.COMMON?.COPYRIGHT || '声明'}
+            <span className='j-print j-soft ml-2 text-[15px]'>
+              原创 · 转载请注明出处
+            </span>
           </div>
-        </header>
 
-        {post?.aiSummary && <AISummary aiSummary={post.aiSummary} />}
+          <ShareNote post={post} />
 
-        <div id='article-wrapper' className='j-print'>
-          <NotionPage post={post} />
-        </div>
+          <ArticleAround prev={prev} next={next} />
+          {post?.type === 'Post' && recommendPosts?.length > 0 && (
+            <RecommendPosts recommendPosts={recommendPosts} />
+          )}
 
-        <hr className='j-dashed-rule' />
-
-        <div className='j-hand j-red text-[19px]'>
-          {locale?.COMMON?.COPYRIGHT || '声明'}
-          <span className='j-print j-soft ml-2 text-[15px]'>
-            原创 · 转载请注明出处
-          </span>
-        </div>
-
-        <ShareNote post={post} />
-
-        <ArticleAround prev={prev} next={next} />
-        {post?.type === 'Post' && recommendPosts?.length > 0 && (
-          <RecommendPosts recommendPosts={recommendPosts} />
-        )}
-
-        <section className='j-comments mt-12'>
-          <h2 className='j-hand text-[24px]'>
-            {locale?.COMMON?.COMMENTS || '评论'}
-          </h2>
-          <div className='max-w-[14ch]'>
-            <HandRule red />
-          </div>
-          <Comment frontMatter={post} />
-        </section>
-      </article>
-    </main>
+          <section className='j-comments mt-12'>
+            <h2 className='j-hand text-[24px]'>
+              {locale?.COMMON?.COMMENTS || '评论'}
+            </h2>
+            <div className='max-w-[14ch]'>
+              <HandRule red />
+            </div>
+            <Comment frontMatter={post} />
+          </section>
+        </article>
+      </main>
+    </>
   )
 }
 

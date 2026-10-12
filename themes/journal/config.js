@@ -47,6 +47,8 @@ const CONFIG = {
   JOURNAL_SHOW_TOC: true,
   JOURNAL_SHOW_READING_PROGRESS: true,
   JOURNAL_TOC_TITLE: '这一页的目录',
+  // OG 卡接线（B 案：主题内第二枚 og:image，规格见 MASTER「接线决定」节）
+  JOURNAL_OG_CARD: true,
 
   // 分享（主题内自绘的纯文字手绘链接；总开关仍走站点 POST_SHARE_BAR_ENABLE）
   JOURNAL_SHARE_BAR: true,

@@ -501,7 +501,7 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 
 `page.emulateMediaType('print')` + 视口 **673×950**（A4 减 16mm 页边 ≈178mm @96dpi，用真实打印宽度才能把 `md:`/`lg:` 断点一起验到），再 `page.pdf({ format: 'A4', printBackground: false, margin: 16mm })` 对页数。
 回归护栏在 `__tests__/themes/journalPrintStyles.test.js`（9 条，含上面三个坑与"不许出现 `print-color-adjust:`""字号只许 9pt"两条负向断言）。
-## 同语言 OG 卡（D2 · 2026-10-10 落地，**未接线**）
+## 同语言 OG 卡（D2 · 2026-10-10 落地，**已接线 · B 案**，接线口径见「接线决定」节）
 
 **一句话规格**：分享卡是一张**贴在纸上的手账切片**——1200×630、纸底墨框、日期邮戳，把文章标题**按文章本身的语言原样**画进图片里。它是渲染产物而不是设计稿导出，所以本节的下半部分全是 `next/og` 的能力边界；审美上要跟手账语法一致，工艺上要跟 satori 一致，两者冲突时**工艺赢**（因为审美可以不调那一笔，工艺调不了）。
 
@@ -576,6 +576,16 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 
 顺带的收益值得记下：中文无衬线一旦自托管，**网页侧的 Print 层也能脱离 `FONT_URL`** —— 那笔唯一剩下的配置债就有了代码侧的退路（Noto SC 全量 CDN 会展开十几个 gstatic 分片，是比拉丁迁移更大的一笔流量）。但**这是另一件事，不并入 D2**。
 
+### 接线决定（2026-10-10 拍板：**B 案** · 主题内第二枚 `og:image`）
+
+不动 `components/SEO.js` 的前提下，用户在三选一里点了 **B**：journal 的 `LayoutSlug`（未锁定分支）用 `next/head` 注入一枚绝对 URL 的 `og:image`，参数即 `/api/og` 的 query 契约（`title/date/category/state/locale`；`site` 不传，由路由默认成 `BLOG.LINK` 的 host）。
+
+- `state` 直接复用「状态编码」的 `stateMarks(post)` 键序（至多 3 个，卡面只画首枚）——**语法同源，卡片与页面不许有两套状态规则**
+- **先修正一处本文此前写错的事实**：「B 案 · `next/head` 不去重」只对了一半。`next/head` 的 meta 确实按 `property`/`name`/`charSet`/`httpEquiv` 归一化身份，但**比较键是 `tag + 身份 + content` 三元组**——所以两枚 `property='og:image'` 但 content 不同的 meta **不会互相顶掉，SSR 与水合后都并存**（2026-10-10 实测，见「接线落地记录」）。哪枚生效交给 parser，本文下方那条「要先在真实渲染里量出先后顺序才可选」的门槛已由实测解除，量测结果就记在那里
+- **兜底**（延续上文「兜底」第 1/2 条）：`EXPORT=true` 一律不注入（静态导出没有 `pages/api`），`og:image` 自然落回 SEO.js 的现状值。锁定文章**照常注入**——注入点在 `LayoutSlug` 的非空分支而非 `lock` 分支，而 `lock` 时 SEO.js 的 `og:title` 本来就带出标题，卡片不构成新的泄露（见落地记录第 3 条）
+- 开关 `JOURNAL_OG_CARD`（默认 true）；接线改动只落在 `themes/journal/` 内，共享组件零改动
+- 落地记录（实测结果）见本节末「接线落地记录」
+
 ### 原待拍板（已由上面取代，保留问题本身便于回看）
 
 1. **卡片字体格式：WOFF（2.11MB）还是 TTF（3.41MB）？** 两者 satori 都吃；WOFF 小 38%、实测还略快（120ms vs 162ms），倾向 **WOFF**
@@ -613,6 +623,25 @@ NotionNext 正文全部来自 Notion 块，这一节决定用户 90% 时间的�
 - **jest 里渲染不了 satori**：`ImageResponse` 内部走 dynamic import，jest 的 vm 会抛 `A dynamic import callback was invoked without --experimental-vm-modules`。所以护栏只能是**源码级静态断言**，像素验收必须走 dev server（或本地 babel 直挂组件的临时脚本）
 
 ---
+
+
+### 接线落地记录（2026-10-10，B 案）
+
+改动只落在 `themes/journal/`：`index.js` 的 `ogImageUrl(post, locale)` + `LayoutSlug` 未锁定分支的 `<Head>` 注入，`config.js` 新增 `JOURNAL_OG_CARD`（默认 true）。共享组件零改动，护栏在 `__tests__/themes/journalOgCard.test.js`（+2 条，共 11 条，已拿 HEAD 版反证这两条会红）。
+
+**四条只有量过才知道的事实**：
+
+- **并存，不覆盖**：SSR HTML 与水合后的真实 DOM 里 `og:image` 都是**两枚**（SEO.js 的现状值在前、卡片 URL 在后，均带 `data-next-head`）。去重键含 content，所以「后挂载者生效」这个 `next/head` 常规经验在**同 property 不同 content** 时不成立 —— 它是追加，不是替换
+- **生效哪枚由 parser 决定**：取第一个的爬虫（微博等）拿到的是旧封面，取最后一个的或按 ogp.me 当图集处理（Telegram 会取多枚）的拿到卡片。微信/微博对**无图**页面按标题+描述兜底。口径「覆盖品牌图」在 parser 层**不保证**，真实分享效果要到线上发一条才知道 —— 这是 B 案接受的代价，C 案（改 SEO.js 一行）才能根除
+- **锁定文章也注入**：`lock` 分支只是渲染 `ArticleLock`，SEO.js 的 `og:title` 本来就带锁定文章的标题，卡片只是把这枚已公开的标题画成图，不构成新的泄露。规格定为**接受**，不为此加例外。实测补充：密码校验在客户端（localStorage），所以 **SSR 阶段加密文章走的是未锁定分支**，注入照常发生 —— 上面那条「接受」不只是例外处理，而是加密文章的必然形态
+- **页面级只有一份主题 `<Head>`**（`LayoutBase` 的字体 preload），所以不存在"两个 Head 互相看不见"的问题；但 `<Head>` 只许放在**无条件 return 之后**，且 `useRouter()` 必须提到 `LayoutSlug` 顶部的 early-return 之前（rules of hooks）
+
+**实测样本**：`/article/adb-install` 注入 URL 为 `?title=…&date=2024-06-05&category=…&state=revised%2Cphoto&locale=zh-CN`（`state` 直接复用 `stateMarks` 的键序，卡片与页面同一套语法得证）；首页与归档仍是一枚现状值；`/api/og` 于本地 dev 返回 200 + `89504e47` + 91KB。
+
+**dev 量测的两条假阴性（各浪费了一轮排查，判据记在这）**：
+- **冷启动首响应不带主题 `<Head>` 内容**：重启后第 1~2 次请求某路由，`NOTION_CONFIG` 还没进全局快照，`siteConfig('LINK')` 落到 `blog.config` 的 localhost 默认值 → 非绝对 URL 守卫返回 null，HTML 里**连 SEO.js 那枚 og:image 都可能整块缺席**。同一路由连请求三次、只信第 3 次的计数
+- **改主题代码后旧进程不认**：`next dev` 对 `themes/**` 的服务端模块缓存会以 `file -> memory HIT 100%` 的名义继续发旧 HTML，探针 meta 加上去也查无此串。唯一的判据是**换一个从没请求过的文章路由**（或重启后先 warm-up），而不是等更久或反复刷同一篇
+
 
 
 ## 设计稿索引
