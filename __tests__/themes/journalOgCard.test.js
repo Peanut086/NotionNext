@@ -59,7 +59,7 @@ describe('journal OG card', () => {
 
   test('copies the theme tokens instead of re-colouring them', () => {
     // 与 themes/journal/style.js 的 :root 一致；改这里就是改规格
-    ;["'#fdfbf7'", "'#ffffff'", "'#2d2d2d'", "'#ff4d4d'", "'#2d5da1'"].forEach(
+    ;["'#fdfbf7'", "'#ffffff'", "'#2d2d2d'", "'#c81e1e'", "'#2d5da1'"].forEach(
       c => expect(cardSource).toContain(c)
     )
     expect(cardSource).toContain(

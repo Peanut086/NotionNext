@@ -82,7 +82,7 @@ export const Style = () => {
         --slip: #ffffff;
         --ink: #2d2d2d;
         --ink-soft: #5c5c5c;
-        --red: #ff4d4d;
+        --red: #c81e1e;
         --blue: #2d5da1;
         --yellow: #fff9c4;
         --tape: rgba(232, 223, 207, 0.7);
@@ -109,7 +109,7 @@ export const Style = () => {
         /* plog 撕线：一行铅笔墨点，同样把颜色写死在 data URI 里 */
         --tear-line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='6' viewBox='0 0 12 6'%3E%3Ccircle cx='6' cy='3' r='1.7' fill='%235C5C5C'/%3E%3C/svg%3E");
         /* 红字批注的回指箭头：颜色同样烧在 data URI 里，j-night 要再覆盖一次 */
-        --backref-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='21' viewBox='0 0 30 21'%3E%3Cpath d='M28 20C24 15 17 10 5 5M12.6 4.2C10.4 4.2 7.6 4.4 5 5M5 5C5.4 7.6 6 10.2 7.4 12.6' fill='none' stroke='%23FF4D4D' stroke-width='1.9' stroke-linecap='round'/%3E%3C/svg%3E");
+        --backref-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='21' viewBox='0 0 30 21'%3E%3Cpath d='M28 20C24 15 17 10 5 5M12.6 4.2C10.4 4.2 7.6 4.4 5 5M5 5C5.4 7.6 6 10.2 7.4 12.6' fill='none' stroke='%23C81E1E' stroke-width='1.9' stroke-linecap='round'/%3E%3C/svg%3E");
 
         color: var(--ink);
         background-color: var(--paper);
@@ -1359,7 +1359,7 @@ export const Style = () => {
         background-image: none;
       }
       #theme-journal h2 a:hover {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='6' viewBox='0 0 60 6'%3E%3Cpath d='M0 3.6C7 1.2 13 5 20 3.1s13-3.4 20-1.3 14 3.4 20 1.1' fill='none' stroke='%23FF4D4D' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='6' viewBox='0 0 60 6'%3E%3Cpath d='M0 3.6C7 1.2 13 5 20 3.1s13-3.4 20-1.3 14 3.4 20 1.1' fill='none' stroke='%23C81E1E' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
         background-repeat: repeat-x;
         background-size: 60px 6px;
         background-position: 0 96%;
