@@ -1227,7 +1227,7 @@ function LayoutPostList(props) {
                 t.name === currentTag ? 'j-circle' : ''
               }`}
             >
-              {t.name}
+              {tagLabel(t.name)}
             </SmartLink>
           ))}
         </div>
@@ -2119,8 +2119,11 @@ function LayoutTagIndex(props) {
         <StickyNote title='最近用过的标签'>
           <div className='j-hand flex flex-wrap gap-3 text-[18px]'>
             {(props.tagOptions || []).slice(0, 6).map(t => (
-              <SmartLink key={t.name} href={`/tag/${t.name}`}>
-                {t.name}
+              <SmartLink
+                key={t.name}
+                href={`/tag/${encodeURIComponent(t.name)}`}
+              >
+                {tagLabel(t.name)}
               </SmartLink>
             ))}
           </div>

@@ -5,7 +5,9 @@ import { renderToStaticMarkup } from 'react-dom/server.node'
 import {
   LayoutArchive,
   LayoutIndex,
+  LayoutPostList,
   LayoutSlug,
+  LayoutTagIndex,
   seriesGroups,
   seriesOf,
   tagLabel
@@ -158,6 +160,32 @@ describe('连载语法：判据', () => {
     // 云里不许再直接印裸前缀：那是 Notion 的字段名，不是给人念的
     expect(html).not.toMatch(/连载:手账入门/)
     expect(html).toMatch(/href="\/tag\/%E8%BF%9E%E8%BD%BD%3A/)
+  })
+
+  test('列表标签行与「最近用过的标签」也走同一把尺，链子照样 encode', () => {
+    const tagOptions = [
+      { name: '连载:手账入门', count: 3 },
+      { name: '普通标签', count: 1 }
+    ]
+    const list = renderToStaticMarkup(
+      <LayoutPostList
+        title='话题'
+        tag='连载:手账入门'
+        tagOptions={tagOptions}
+        posts={[post('a-2024', '2024-01-01', ['连载:手账入门'])]}
+      />
+    )
+    const tagIndex = renderToStaticMarkup(
+      <LayoutTagIndex
+        tagOptions={tagOptions}
+        posts={[post('a-2024', '2024-01-01', ['连载:手账入门'])]}
+      />
+    )
+    for (const html of [list, tagIndex]) {
+      expect(html).toMatch(/连载 · 手账入门/)
+      expect(html).not.toMatch(/连载:手账入门/)
+      expect(html).toMatch(/href="\/tag\/%E8%BF%9E%E8%BD%BD%3A/)
+    }
   })
 
   test('话数按发表日升序，与页码同一把尺', () => {
