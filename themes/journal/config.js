@@ -49,6 +49,9 @@ const CONFIG = {
   JOURNAL_SERIES_TITLE: '连载',
   // 一话不成辑：清单要等第二篇才出现，第一话只当普通标签
   JOURNAL_SERIES_MIN: 2,
+  // 连载册 /series/[name]：把一条线印成一辑，规格见 MASTER「连载册」节
+  JOURNAL_SERIES_BOOK: true,
+  JOURNAL_SERIES_BOOK_LABEL: '连载册',
 
   // 年刊 /year/[year]：把一年印成一册，一月开一页（规格见 MASTER「年刊」节）
   JOURNAL_YEARBOOK: true,

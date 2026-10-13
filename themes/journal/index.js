@@ -1813,9 +1813,34 @@ const seriesGroups = (posts = []) => {
     )
 }
 
+/** 一条线的册表：路由的 `getStaticPaths`、归档那枚入口、册页的空态三处都问它，
+ *  谁都不许自己再算一遍——否则「链子在、册不在」的 404 迟早出现（同年刊的 bookYears） */
+const seriesBooks = (posts = []) =>
+  seriesGroups(posts)
+    // 名字里带 `/` 的标签进不了册：`/series/a/b` 会被路由切成两段，永远匹配不上
+    .filter(group => !group.name.includes('/'))
+    .map(group => {
+      const keys = group.posts.map(({ key }) => key)
+      return {
+        name: group.name,
+        // 册名是剥了前缀那一截：URL 里带 %3A 既难看也没法念
+        href: `/series/${encodeURIComponent(group.name)}`,
+        posts: group.posts,
+        count: group.posts.length,
+        first: keys[0] || '',
+        last: keys[keys.length - 1] || '',
+        years: [
+          ...new Set(
+            keys.map(key => key.slice(0, 4)).filter(year => year.length === 4)
+          )
+        ].sort(cmp)
+      }
+    })
+
 /** 连载清单：住在归档右栏，因为别处没有全集（口径同「往年的今天」） */
 function SeriesNote({ posts = [] }) {
   const series = useMemo(() => seriesGroups(posts), [posts])
+  const books = useMemo(() => seriesBooks(posts), [posts])
   if (!series.length) return null
 
   return (
@@ -1835,6 +1860,16 @@ function SeriesNote({ posts = [] }) {
               <span className='j-stamp j-soft whitespace-nowrap'>
                 {`${group.posts.length} 话`}
               </span>
+              {/* 入口只长在这张有全集的清单上：文章页的胶囊判不出成不成辑 */}
+              {j('JOURNAL_SERIES_BOOK', true) &&
+                books.find(b => b.name === group.name) && (
+                  <SmartLink
+                    href={books.find(b => b.name === group.name).href}
+                    className='j-stamp j-soft whitespace-nowrap'
+                  >
+                    {`${j('JOURNAL_SERIES_BOOK_LABEL', '连载册')} →`}
+                  </SmartLink>
+                )}
             </div>
             <div className='mt-1 grid gap-1'>
               {group.posts.map(({ post, key }, i) => (
@@ -2297,7 +2332,8 @@ const LEGEND_SYNTAX = [
   {
     name: '连载',
     how: '给文章打一个以 JOURNAL_SERIES_PREFIX（默认「连载:」）开头的标签，前缀之后那截就是连载名',
-    today: '话数按发表日排，早的是第 1 话；清单在归档右栏，不足 2 话不成辑，标签胶囊写成「连载 · 名字」'
+    today:
+      '话数按发表日排，早的是第 1 话；清单在归档右栏，不足 2 话不成辑，标签胶囊写成「连载 · 名字」；成辑的那条线在旁边多一枚「连载册 →」，进去是 /series/[连载名]'
   },
   {
     name: '纸会老',
@@ -2307,7 +2343,8 @@ const LEGEND_SYNTAX = [
   {
     name: '按年装订',
     how: '发表日的年份',
-    today: '归档页一年一摞，摞上两枚订书钉；每年那一摞还能单开一册：/year/[年份]'
+    today:
+      '归档页一年一摞，摞上两枚订书钉；每年那一摞还能单开一册：/year/[年份]'
   },
   {
     name: '页码 P.0XX',
@@ -2620,6 +2657,122 @@ function LayoutYearbook(props) {
   )
 }
 
+/* ------------------------------------------------------------------ *
+ * 连载册 /series/[name]：把一条线印成一辑
+ * 规格见 design-system/journal/MASTER.md「连载册」节
+ * ------------------------------------------------------------------ */
+
+function LayoutSeries(props) {
+  const { posts = [], series = '' } = props
+  const books = useMemo(() => seriesBooks(posts), [posts])
+  const book = books.find(b => b.name === series)
+  const numbers = useMemo(
+    () => (j('JOURNAL_PAGE_NUMBERS', true) ? pageNumbers(posts) : new Map()),
+    [posts]
+  )
+  const readMarks = useReadMarks()
+
+  if (!j('JOURNAL_SERIES_BOOK', true)) return null
+
+  const at = books.findIndex(b => b.name === series)
+  const prev = at > 0 ? books[at - 1] : null
+  const next = at > -1 && at < books.length - 1 ? books[at + 1] : null
+  const empty = !book
+  const marks = empty
+    ? new Map()
+    : markCounts(book.posts.map(({ post }) => post))
+  const rows = [
+    ['共几话', `${book?.count || 0} 话`],
+    ['第一话', book?.first ? mdOf(book.first) : '--.--'],
+    ['末话', book?.last ? mdOf(book.last) : '--.--'],
+    ['跨的年份', book?.years.length ? book.years.join(' · ') : '没有日期']
+  ]
+
+  return (
+    <main className='j-shell grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_280px]'>
+      <div>
+        <h1 className='j-marker text-[48px] leading-none md:text-[58px]'>
+          {series || '这条线'}
+        </h1>
+        <div className='max-w-[20ch]'>
+          <HandRule />
+        </div>
+        <p className='j-print j-soft mt-2'>
+          {empty
+            ? '这条线还没攒成一册'
+            : `共 ${book.count} 话 · 从第 1 话往下翻`}
+        </p>
+
+        {empty ? (
+          <div className='j-slip j-tape-single mt-9 px-6 py-10 text-center'>
+            <p className='j-hand j-blue text-[22px]'>这条线还没攒成一册。</p>
+            <p className='j-print j-soft mt-2 text-[15px]'>
+              本站攒得起的册是：
+              {books.map(b => b.name).join('、') || '还没有一条线凑够两话'}
+            </p>
+          </div>
+        ) : (
+          <div className='j-series-thread mt-9'>
+            {book.posts.map(({ post, slug }, i) => (
+              <div key={post?.id || slug} className='j-series-item'>
+                <span className='j-series-no j-stamp j-soft'>
+                  {`第 ${i + 1} 话`}
+                </span>
+                <PostSlip
+                  post={post}
+                  pageNo={numbers.get(post?.id || slug)}
+                  readPct={pctOf(readMarks, post)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {!empty && (
+        <div className='j-tilt-slow grid content-start gap-7'>
+          <StickyNote title={`${series} 这一辑`}>
+            <div className='j-legend-stats'>
+              {rows.map(([name, value]) => (
+                <div key={name}>
+                  <span className='j-stamp j-soft'>{name}</span>
+                  <span className='j-hand ml-2 text-[18px]'>{value}</span>
+                </div>
+              ))}
+            </div>
+            <div className='mt-3 grid gap-1'>
+              {usedMarks(marks).map(item => (
+                <span key={item.name} className='j-stamp j-soft'>
+                  {`${item.name} · ${item.n} 张`}
+                </span>
+              ))}
+            </div>
+          </StickyNote>
+          <StickyNote title='相邻的辑' className='j-book-nav'>
+            <div className='j-hand flex flex-wrap gap-3 text-[18px]'>
+              {prev && (
+                <SmartLink href={prev.href}>{`← ${prev.name}`}</SmartLink>
+              )}
+              {next && (
+                <SmartLink href={next.href}>{`${next.name} →`}</SmartLink>
+              )}
+              {!prev && !next && (
+                <span className='j-print text-[15px]'>这本子只攒了一辑</span>
+              )}
+            </div>
+          </StickyNote>
+          <div className='j-note j-book-nav p-5'>
+            <div className='j-stamp'>打印这一辑</div>
+            <p className='j-print mt-2 text-[15px] leading-7'>
+              一话一张纸，顺着铅笔线往下排；屏幕上是连着滚的一趟。
+            </p>
+          </div>
+        </div>
+      )}
+    </main>
+  )
+}
+
 function BigTapedPaper({ children }) {
   return (
     <main className='j-shell grid min-h-[60vh] place-items-center py-16'>
@@ -2722,6 +2875,7 @@ export {
   LayoutPlog,
   LayoutPostList,
   LayoutSearch,
+  LayoutSeries,
   LayoutSignIn,
   LayoutSignUp,
   LayoutSlug,
@@ -2733,6 +2887,7 @@ export {
   localDay,
   seriesOf,
   seriesGroups,
+  seriesBooks,
   tagLabel,
   bookYears,
   yearMonths,

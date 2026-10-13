@@ -1065,6 +1065,44 @@ export const Style = () => {
         flex: none;
       }
 
+      /* ---------- 3k. 连载册：一条线印成一辑 ---------- *
+         竖线是这条「线」本身的图形，走淡墨（--ink-soft），不新增第四色；
+         容器只锁横向留白——margin/padding 写简写会静默压掉同元素的
+         Tailwind 竖向工具类（见「首版实测撞出的两处既有问题」） */
+      #theme-journal .j-series-thread {
+        position: relative;
+        padding-left: 16px;
+      }
+      #theme-journal .j-series-thread::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 8px;
+        bottom: 8px;
+        border-left: 2px dashed var(--ink-soft);
+      }
+      #theme-journal .j-series-item {
+        display: grid;
+        grid-template-columns: 72px minmax(0, 1fr);
+        align-items: start;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      #theme-journal .j-series-no {
+        padding-top: 10px;
+        white-space: nowrap;
+      }
+      @media (max-width: 639px) {
+        /* 手机没有页边放「第 N 话」那一列，改成压在纸条上方的一行铅笔字 */
+        #theme-journal .j-series-item {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 2px;
+        }
+        #theme-journal .j-series-no {
+          padding-top: 0;
+        }
+      }
+
       /* ---------- 4. 按钮 / 表单 ---------- */
       #theme-journal .j-btn {
         display: inline-flex;

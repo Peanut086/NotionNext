@@ -495,6 +495,14 @@ const getSEOMeta = (props, router, locale) => {
         slug: `year/${router?.query?.year}`,
         type: 'website'
       }
+    case '/series/[name]':
+      return {
+        title: `${router?.query?.name} 连载 | ${siteInfo?.title}`,
+        description: `${siteInfo?.description}`,
+        image: `${siteInfo?.pageCover}`,
+        slug: `series/${router?.query?.name}`,
+        type: 'website'
+      }
     default:
       const category = Array.isArray(post?.category)
         ? post?.category?.[0]
