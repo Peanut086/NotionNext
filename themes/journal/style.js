@@ -784,6 +784,40 @@ export const Style = () => {
         color: var(--ink);
       }
 
+      /* ---------- 3h+. 其余 Notion 底色的夜间可读性 ---------- *
+         上游纯色底（gray…default）只在浅色态想过：j-night 的亮墨字压近白底，
+         线上实测 1.00–1.12。修法沿用"便签贴牛皮纸"的物理事实——浅色纸片在黑夜里
+         还是浅色纸片，翻的只能是字：便签内正文转打印态同一支墨 #2d2d2d（不新增
+         token），实测各档 12.2–14.3；链接与行内代码转打印深蓝 #1e3f73（行内代码
+         上游是 .notion-inline-code{color:#eb5757}，红在便签上还和"作者的手"撞语义）。
+         底色一律不动：日间便签本来就是浅纸深字，两态同一张纸。
+         载体只有段落与标题两类——fixture 实测引用块和 toggle 的底色在主题里根本
+         落不了地（.notion-quote 被 ID 规则改成 var(--slip)、.notion-toggle 被写死
+         transparent，上游 class*="_background" 双双被顶掉），callout 走 _co 档且
+         被便利贴黄 !important 接管。给它们写翻字规则等于在深色纸上涂深字。
+         刻意不碰的：_co 半透明档（垫在牛皮纸上实测 4.32–4.66 本来就可读）；
+         段落红底（那是荧光笔语法，上一节已有两态方案）——但红底标题不在语法
+         范围内，按便签翻是刻意的。
+         翻字载体不在 :not() 里塞复合参数（:not(.a.b)）：老 WebKit 会把含无效
+         参数的规则整条静默丢弃——红底排除只写成两个简单 :not() 串联，可审计。 */
+      #theme-journal.j-night
+        h1[class*='_background']:not([class*='_background_co']),
+      #theme-journal.j-night
+        h2[class*='_background']:not([class*='_background_co']),
+      #theme-journal.j-night
+        h3[class*='_background']:not([class*='_background_co']),
+      #theme-journal.j-night
+        .notion-text[class*='_background']:not([class*='_background_co']):not(
+          .notion-red_background
+        ) {
+        color: #2d2d2d;
+      }
+      #theme-journal.j-night
+        [class*='_background']:not([class*='_background_co'])
+        :is(a, .notion-inline-code) {
+        color: #1e3f73;
+      }
+
       /* 便利贴黄 */
       #theme-journal .j-note {
         background: var(--yellow);
