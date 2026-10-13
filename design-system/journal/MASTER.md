@@ -716,6 +716,35 @@ NotionNext 没有 series 概念。这一族用**标签前缀**补上：站长只
 
 ---
 
+## 手绘原子清单（D3 的收口面 · 2026-10-13 立，**只到文档，未拆文件**）
+
+D3 从第一天就挂在「等视觉语言定稿再把胶带/撕纸/邮戳/红圈抽成手绘原子库供第二主题复用」。它一直收不了口，是因为「定稿」没有判据——任何一天都可以说还没定稿。这一节把**判据、裁决、边界**三样钉住，从此起点不再是"感觉"。
+
+今天的规模（2026-10-13 实测，写进规格的数字都是当场量的）：`themes/journal/index.js` 3017 行 / 35 个 `function` 组件，`themes/journal/style.js` 1901 行 / 97 个不同 `.j-*` 类名，全文 `## ` 节 38 条。**护栏的取源方式已经成了隐性契约**：`__tests__/themes/` 19 个套件里有 **14 个直接读 `themes/journal/index.js` 的源码字符串**（`block()` 16 处、`read()` 62 处），所以组件的**排列顺序**会决定一条护栏切到哪段——今天 `LayoutSeriesIndex` 必须插在 `LayoutSeries` 之前，就是被这条契约逼出来的。这是 D3 要解决的真实成本，不是"代码长了想重构"。
+
+**定稿判据（可量，替代"我觉得定稿了"）**：**连续三笔功能提交只动语法层（谁在什么时候出现、取哪份数据），不新增也不改写任何 `.j-*` 图形规则**。按这条判据回看：`552105b3`（十二项）与 `87168fdf`（连载册，新增 `.j-series-thread` 一族）都动了原子层，所以**判据到今天仍未满足**，「拆文件」那一步的硬前置没通过。
+
+**先裁决一句自相矛盾（这一条比拆文件重要）**：主题守着「同一图形只服务一个语义」（`ThreadLink` 的铅笔连线刻意不在连载册内复用，护栏 `expect(book).not.toMatch(/<ThreadLink/)` 钉着）；而"原子库"的定义恰恰是同一图形跨场景复用。分法只有一条：**原子 = 画法 + 它消费的 token；语义绑定不属于原子**。复用画法合法，复用「这个图形代表什么」非法。往后任何"因为复用了原子"的说明都不构成绕过语义禁令的理由。
+
+**入册判据（两条同时成立才算原子）**：① 剥掉语义词之后还剩画法（形状 / 几何 / token）；② 在主题内被 ≥3 处调用。 breadth 用 `<组件>` 的调用数量，实测 StickyNote 15、HandRule 15、PostSlip 7、ArrowRight 6、RedCircle 5、ReadMark 3、DaySpread 3、BallpointNote 3。**别用 class 在 `index.js` 里出现的次数当 breadth**：`j-rule` 只出现 1 次（就在 `HandRule` 自己的定义里），而它被调用 15 次——包了组件的原子，类名计数恒等于 1。
+
+| 原子 | 画法（几何就是这些数字，改动要回写本行） | 只消费 | 现在的语义绑定 |
+|---|---|---|---|
+| 纸条 `.j-slip` | `border: 2px solid var(--j-edge)` + `border-radius: var(--wobble)`（`255px 15px 225px 15px / 15px 225px 15px 255px`）+ `box-shadow: var(--shadow)`（`5px 5px 0`，**永远无模糊**）+ `rotate(var(--r, 0))`；hover 只掀 1px（`translate(-1px,-1px)` + `--shadow-hover` 6px）；alt 版走 `--wobble-alt` | `--slip` `--j-edge` `--shadow` | 任何「一张可贴可叠的纸」：列表纸条、文章页正文、404 那张大纸 |
+| 胶带 `.j-tape` / `-single` / `-bit` | 74×22 两端锯齿 `clip-path: polygon(...)`、`opacity .85`、`z-index 2`；`::before` `top:-12 left:12% rotate(-5deg)`、`::after` `top:-12 right:10% rotate(4deg)`；single 一枚居中 96×22；bit 46×17 `bottom:-9 left:26 rotate(-34deg)` `opacity .75` | `--tape` | 主胶带 = **这张纸被固定住**；左下角另贴一次 = **已修订**。刻意不再往上沿加第三种胶带语义（上沿已被主胶带 + 图钉 + 角标占满） |
+| 邮戳 `.j-stamp-date`（文字层 `.j-stamp`） | 双层边：`border: 2px solid var(--red)` + `outline: 1px solid var(--red); outline-offset: 2px`；`--wobble-alt` + `rotate(-4deg)` + `filter: blur(0.2px)`（**微糊是"盖下去"的关键**）+ `padding: 3px 9px`；`.j-stamp` = 等宽 13px / `letter-spacing: .12em` | `--red` `--font-stamp` | 盖上去的事实：日期、计数、状态文字。老化只改 `opacity`（陈 .86 / 旧 .72），**不改色** |
+| 便条 `.j-note` + `StickyNote` | `border: 2px solid var(--ink)` + `border-radius: 2px 18px 3px 14px / 14px 3px 16px 2px` **自带一份歪斜值、不走 `--wobble`**（要的是"撕下来的一角"手感）。这不是孤例：实测全站有 **18 处**不引用 `--wobble` 的 `border-radius`——这类"每个载体各写一份歪斜值"正是原子库下一步要收敛的 + `--shadow` + `rotate(var(--r, 0.8deg))` | `--yellow` `--ink` `--shadow` | 右栏那一列「作者给自己的备忘」 |
+| 手写线 `HandRule` / `.j-rule` | SVG `stroke-width: 2.4` `stroke-linecap: round`，`height: 14px` + `overflow: visible`（**"出头"全靠这条 visible**）；红档 `.j-rule-red` 换 `var(--red)` | `--ink` `--red` | 标题下「这句话到此为止」；索引贴当前项那一枚压在下缘（居中会被读成删除线，见「目录 = 侧伸的索引贴」节） |
+| 红圈 `RedCircle` / `.j-circle` | 外扩 `inset: -8px -14px`、`stroke-width: 2.2`、`pointer-events: none` | `--red` | **当前 / 唯一选中的一项**（导航当前页、月历今天）。圈两个等于没圈，所以刻意不做"多选中" |
+| 章 `.j-pill` / `.j-mark` | `border: 1.5px solid var(--ink)` + `border-radius: 12px 4px 10px 5px / 5px 10px 4px 12px` + 等宽 12px `.06em`；黄档走 `--yellow`、hover 走 `--tape`；`.j-mark` 只把字压成 `--ink-soft` | `--ink` `--yellow` `--tape` `--ink-soft` | 标签与状态。规矩不变：**图形不承载唯一信息**，每个状态都配一枚 Stamp 层文字 |
+| 铅笔连线 `.j-thread` + `ThreadLink` | `stroke: currentColor`（`color: var(--ink-soft)`）`stroke-width: 1.8`、虚线段 `stroke-dasharray: 6 5`、**箭头那一段不虚线**；窄屏 `rotate(90deg)` 立起来 | `--ink-soft` | 上/下一篇之间那道作者痕迹。册内竖线 `.j-series-thread` 是 `border-left: 2px dashed` 的 CSS 直虚线，**画法不同、刻意不合并**——合并等于稀释「连线」的语义 |
+
+**不入册的（是语法不是原子）**：`.j-day` / `.j-days` / `.j-spine`（一天一摊）、`.j-year-stack` / `.j-staple`（按年装订）、`.j-tabs` / `.j-tab`（索引贴目录）、`.j-drawer`（搜索抽屉）、`.j-polaroid` / `.j-teeth`（拍立得与撕线）、`.j-cal-ruler`（落笔格）、`.j-series-thread` / `.j-series-item`（连载册）、`.j-book-nav`（册页导航家族）、`.j-arch-row`（归档行）、`.j-highlight` / `mark.j-marker-hit`（荧光笔两粒度）、`.j-age-1/2`（纸会老）、`.j-progress`（读者铅笔痕）、`.j-btn`（**它是纸条几何的一个调用方**，多出来的只有 `min-height: 44px` 那条无障碍红线，不是新画法）。它们各自在 MASTER 有语法节，抽进原子库等于把今天的规格固化成依赖。
+
+**收口剩下的一步（硬前置：判据满足之后）**：拆 `themes/journal/atoms.js`。代价已经量清——那 14 个按源码取证的套件里，`block()` 16 处 + `read()` 62 处会随组件搬家而红，**而红的不是行为变了**。所以只能按文件成批搬，每批用「迁移前后 `renderToStaticMarkup` 的 HTML 逐字节相等」当闸门，并把护栏的取源方式一并从"切函数名"改成"渲染产物断言"。**跨主题 shared 层不做**：第二主题至今不存在，为假想调用方抽接口正是 D3 当初被推迟的理由——`atoms.js` 留在主题内，将来真要共享只是再搬一次文件。
+
+---
+
 ## 页面槽位
 
 **LayoutIndex（首页）**：手写下大站名 + 出头下划线 → 胶带导航（当前项红圈）→ 蓝色圆珠笔手写便条「最近在写」→ 按「一天一摊」分组的胶带纸条文章条（摊眉大邮戳 + 同天多篇作跨页带装订中缝；标题 Hand / 摘要 Print / 红邮戳日期 / 黄标签胶囊；状态标记一律按「状态编码」节从真实字段推得，**没有「列表第一条即精选」这种规则**；陈 / 旧两档的邮戳与墨边按「纸会老」褪色）→ 右栏便利贴「关于我」+ 拍立得头像 + 手绘下划线社交行 → 未画满的墨线页脚 + 纸飞机涂鸦。
