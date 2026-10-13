@@ -1847,6 +1847,14 @@ function SeriesNote({ posts = [] }) {
 
   return (
     <StickyNote title={j('JOURNAL_SERIES_TITLE', '连载')}>
+      {/* 目录只在真有成辑时出现：一辑都没有时那页只会说「还没攒够」，不值得跳 */}
+      {books.length > 0 && j('JOURNAL_SERIES_BOOK', true) && (
+        <div className='mb-3'>
+          <SmartLink href='/series' className='j-stamp j-soft whitespace-nowrap'>
+            {`${j('JOURNAL_SERIES_BOOK_LABEL', '连载册')}目录 →`}
+          </SmartLink>
+        </div>
+      )}
       <div className='grid gap-3'>
         {series.map(group => (
           <div key={group.name}>
@@ -2663,6 +2671,107 @@ function LayoutYearbook(props) {
 }
 
 /* ------------------------------------------------------------------ *
+ * 册子目录 /series：一辑一行，册页家族的回程
+ * 规格见 design-system/journal/MASTER.md「册子目录 /series」节
+ * ------------------------------------------------------------------ */
+
+function LayoutSeriesIndex(props) {
+  const { posts = [] } = props
+  // 与路由表、归档入口、册页空态同一把尺；这一页不许自己再算一遍
+  const books = useMemo(() => seriesBooks(posts), [posts])
+  const min = Number(j('JOURNAL_SERIES_MIN', 2)) || 2
+  if (!j('JOURNAL_SERIES_BOOK', true)) return null
+
+  return (
+    <main className='j-shell grid gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_280px]'>
+      <div>
+        <h1 className='j-marker text-[48px] leading-none md:text-[58px]'>
+          {j('JOURNAL_SERIES_BOOK_LABEL', '连载册')}
+        </h1>
+        <div className='max-w-[20ch]'>
+          <HandRule />
+        </div>
+        <p className='j-print j-soft mt-2'>
+          {books.length
+            ? `${books.length} 辑 · 共 ${books.reduce(
+                (n, b) => n + b.count,
+                0
+              )} 话`
+            : '还没有一条线攒成一辑'}
+        </p>
+
+        {books.length ? (
+          <div className='mt-9 grid gap-3'>
+            {books.map(b => (
+              <div
+                key={b.name}
+                className='j-slip j-tape-single flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3'
+              >
+                <h2 className='j-hand flex-1 text-[19px]'>
+                  <SmartLink href={b.href} className='j-stretch'>
+                    {b.name}
+                  </SmartLink>
+                </h2>
+                <div className='relative z-[2] flex flex-wrap items-center gap-x-2 gap-y-1'>
+                  <span className='j-stamp j-soft whitespace-nowrap'>
+                    {`${b.count} 话`}
+                  </span>
+                  <span className='j-stamp j-soft whitespace-nowrap'>
+                    {`${mdOf(b.first) || '--.--'} – ${
+                      mdOf(b.last) || '--.--'
+                    }`}
+                  </span>
+                  <span className='j-stamp j-soft whitespace-nowrap'>
+                    {b.years.length ? b.years.join(' · ') : '没有日期'}
+                  </span>
+                  <SmartLink
+                    href={b.href}
+                    className='j-stamp j-soft whitespace-nowrap'
+                  >
+                    翻开这一辑 →
+                  </SmartLink>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className='j-slip j-tape-single mt-9 px-6 py-10 text-center'>
+            <p className='j-hand j-blue text-[22px]'>
+              还没有一条线攒成一辑。
+            </p>
+            <p className='j-print j-soft mx-auto mt-2 max-w-[34ch] text-[15px]'>
+              攒法：给文章打上同一枚
+              <code className='j-print'>
+                {`${j('JOURNAL_SERIES_PREFIX', '连载:')}名字`}
+              </code>
+              标签，够 {min} 话就自动成册。
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className='j-tilt-slow grid content-start gap-7'>
+        <StickyNote title='怎样算一辑'>
+          <div className='grid gap-1'>
+            <span className='j-stamp j-soft'>同一枚连载标签</span>
+            <span className='j-stamp j-soft'>{`攒够 ${min} 话`}</span>
+            <span className='j-stamp j-soft'>话数按发表日排</span>
+          </div>
+          <p className='mt-2'>
+            一辑一张纸太薄，所以册子里是「一话一张纸」连着排；这里列的是辑，不是话。
+          </p>
+        </StickyNote>
+        <StickyNote title='逐话清单在归档'>
+          <div className='j-hand text-[18px]'>
+            <SmartLink href='/archive'>归档右栏那张「连载」便条 →</SmartLink>
+          </div>
+        </StickyNote>
+      </div>
+    </main>
+  )
+}
+
+/* ------------------------------------------------------------------ *
  * 连载册 /series/[name]：把一条线印成一辑
  * 规格见 design-system/journal/MASTER.md「连载册」节
  * ------------------------------------------------------------------ */
@@ -2764,6 +2873,12 @@ function LayoutSeries(props) {
               {!prev && !next && (
                 <span className='j-print text-[15px]'>这本子只攒了一辑</span>
               )}
+            </div>
+            {/* 回程：读完一辑想知道还有哪几辑，不必跳回归档页 */}
+            <div className='mt-2'>
+              <SmartLink href='/series' className='j-stamp j-soft whitespace-nowrap'>
+                册子目录 →
+              </SmartLink>
             </div>
           </StickyNote>
           <div className='j-note j-book-nav p-5'>
@@ -2881,6 +2996,7 @@ export {
   LayoutPostList,
   LayoutSearch,
   LayoutSeries,
+  LayoutSeriesIndex,
   LayoutSignIn,
   LayoutSignUp,
   LayoutSlug,

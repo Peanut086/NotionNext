@@ -22,6 +22,7 @@ module.exports = {
     '/plog': 'LayoutPlog',
     '/legend': 'LayoutLegend',
     '/year/[year]': 'LayoutYearbook',
+    '/series': 'LayoutSeriesIndex',
     '/series/[name]': 'LayoutSeries',
     '/[prefix]': 'LayoutSlug',
     '/[prefix]/[slug]': 'LayoutSlug',

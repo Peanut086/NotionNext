@@ -2,7 +2,12 @@ import fs from 'fs'
 import path from 'path'
 import { render } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server.node'
-import { LayoutArchive, LayoutSeries, seriesBooks } from '@/themes/journal'
+import {
+  LayoutArchive,
+  LayoutSeries,
+  LayoutSeriesIndex,
+  seriesBooks
+} from '@/themes/journal'
 
 /**
  * 连载册 /series/[name] 的护栏。规格见 design-system/journal/MASTER.md「连载册」节。
@@ -223,7 +228,10 @@ describe('连载册：纸上', () => {
   })
 
   test('册里的纸沿用列表那张纸条，不另写一种', () => {
-    const book = block('function LayoutSeries', 'function BigTapedPaper')
+    // 锚点必须带到参数表：`LayoutSeriesIndex` 以 `LayoutSeries` 为前缀，
+    // 只写函数名的话 indexOf 会先撞上目录组件，这段护栏悄悄变成两个组件的并集
+    const book = block('function LayoutSeries(props)', 'function BigTapedPaper')
+    expect(book).not.toMatch(/LayoutSeriesIndex/)
     expect(book).toMatch(/<PostSlip/)
     expect(book).toMatch(/pageNumbers\(posts\)/)
     expect(book).toMatch(/seriesBooks\(posts\)/)
@@ -302,5 +310,117 @@ describe('连载册：纸上', () => {
     expect(route).toMatch(/fallback: isExport\(\) \? false : 'blocking'/)
     // 册页拿的是全集：标签页那两刀（slice 与 delete）不许在这条路上重演
     expect(route).not.toMatch(/POSTS_PER_PAGE|slice\(/)
+  })
+})
+
+describe('册子目录 /series：一辑一行', () => {
+  const indexHtml = posts =>
+    renderToStaticMarkup(<LayoutSeriesIndex posts={posts} />)
+
+  test('在册的每一辑排成一行，序与册表同序', () => {
+    const html = indexHtml(POSTS)
+    expect(html).toContain('3 辑 · 共 7 话')
+    for (const name of ['踩坑录', '手账入门', '没有日期']) {
+      expect(html).toContain(name)
+      expect(html).toContain(`/series/${encodeURIComponent(name)}`)
+    }
+    // 目录只列辑，不列话：那是归档便条的活
+    expect(html).not.toMatch(/第 \d+ 话/)
+    // 不成辑的与带斜杠的都进不来（同一把尺滤的，不是目录另算一遍）
+    expect(html).not.toContain('只写过一话')
+    expect(html).not.toContain(`/series/${encodeURIComponent('带/斜杠')}`)
+    expect(html.indexOf('踩坑录')).toBeLessThan(html.indexOf('手账入门'))
+    expect(html.indexOf('手账入门')).toBeLessThan(html.indexOf('没有日期'))
+  })
+
+  test('一行的数只有手数得出的四个', () => {
+    const html = indexHtml(POSTS)
+    expect(html).toContain('2025-03-01'.slice(5).replace('-', '.'))
+    expect(html).toContain('01.05 – 02.01')
+    expect(html).toContain('2024 · 2025 · 2026')
+    expect(html).toContain('--.-- – --.--')
+    expect(html).toContain('翻开这一辑 →')
+    expect(html).not.toMatch(/字数|阅读时长|热度|PV|排行/)
+  })
+
+  test('一辑都没有时老实说没攒够，并给出攒法', () => {
+    const html = indexHtml([post('lone', '2026-01-01', ['普通标签'])])
+    expect(html).toContain('还没有一条线攒成一辑')
+    expect(html).toContain('连载:')
+    expect(html).toContain('攒够 2 话')
+    // 规则便条讲的是规则不是数据，空态也照样在
+    expect(html).toContain('怎样算一辑')
+    expect(html).not.toMatch(/j-slip j-tape-single flex/)
+  })
+
+  test('目录只问 seriesBooks 一把尺，不自己算清单', () => {
+    const src = block(
+      'function LayoutSeriesIndex',
+      'function LayoutSeries(props)'
+    )
+    expect(src).toMatch(/seriesBooks\(posts\)/)
+    expect(src).not.toMatch(/seriesGroups\(posts\)/)
+    // 纸沿用归档行那张胶带纸条，不新增材质
+    expect(src).toMatch(/j-slip j-tape-single/)
+    expect(src).not.toMatch(/--[a-z-]+:/)
+  })
+
+  test('两处入口：归档便条顶部与册页「相邻的辑」里，都指 /series', () => {
+    const archive = renderToStaticMarkup(<LayoutArchive posts={POSTS} />)
+    expect(archive).toContain('连载册目录 →')
+    expect(archive).toContain('href="/series"')
+    const book = renderToStaticMarkup(
+      <LayoutSeries posts={POSTS} series='手账入门' />
+    )
+    expect(book).toContain('册子目录 →')
+    expect(book).toContain('href="/series"')
+
+    // 一条线有、但一本册都组不出来（名字带 /）时那枚不出现：
+    // 判据是「有没有成辑」，不是「有没有连载标签」
+    const onlySlash = [
+      post('slash-1', '2025-04-01', ['连载:带/斜杠']),
+      post('slash-2', '2025-05-01', ['连载:带/斜杠'])
+    ]
+    const bare = renderToStaticMarkup(<LayoutArchive posts={onlySlash} />)
+    expect(bare).toContain('带/斜杠')
+    expect(bare).not.toContain('href="/series"')
+  })
+
+  test('册页那枚入口打印不印：复用同一条 .j-book-nav，不写第二份', () => {
+    const { container } = render(
+      <LayoutSeries posts={POSTS} series='手账入门' />
+    )
+    const nav = container.querySelector('.j-book-nav')
+    expect(nav.textContent).toContain('册子目录 →')
+    const print = styleSource.slice(styleSource.indexOf('@media print'))
+    expect(print).toMatch(/#theme-journal \.j-book-nav,/)
+  })
+
+  test('开关能整项关掉：目录页与两处入口同关', () => {
+    setSwitch('JOURNAL_SERIES_BOOK', false)
+    expect(indexHtml(POSTS)).toBe('')
+    expect(renderToStaticMarkup(<LayoutArchive posts={POSTS} />)).not.toContain(
+      'href="/series"'
+    )
+    expect(
+      renderToStaticMarkup(<LayoutSeries posts={POSTS} series='手账入门' />)
+    ).toBe('')
+  })
+
+  test('新路由三处登记齐全（/plog 的教训）', () => {
+    expect(read('conf/layout-map.config.js')).toMatch(
+      /'\/series': 'LayoutSeriesIndex'/
+    )
+    expect(read('components/SEO.js')).toMatch(/case '\/series':/)
+    expect(read('pages/series/index.js')).toMatch(
+      /layoutName='LayoutSeriesIndex'/
+    )
+  })
+
+  test('目录页取全集、不切分页，也不留 allPages', () => {
+    const route = read('pages/series/index.js')
+    expect(route).toMatch(/delete props\.allPages/)
+    expect(route).toMatch(/type === 'Post' && page\.status === 'Published'/)
+    expect(route).not.toMatch(/POSTS_PER_PAGE|slice\(|getStaticPaths/)
   })
 })

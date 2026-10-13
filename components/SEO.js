@@ -495,6 +495,14 @@ const getSEOMeta = (props, router, locale) => {
         slug: `year/${router?.query?.year}`,
         type: 'website'
       }
+    case '/series':
+      return {
+        title: `连载册 | ${siteInfo?.title}`,
+        description: `${siteInfo?.description}`,
+        image: `${siteInfo?.pageCover}`,
+        slug: 'series',
+        type: 'website'
+      }
     case '/series/[name]':
       return {
         title: `${router?.query?.name} 连载 | ${siteInfo?.title}`,
