@@ -1078,6 +1078,8 @@ function TagCloudStickers({ tagOptions = [], limit = 30, selected }) {
         const ratio = ((tag.count || 1) - min) / (max - min || 1)
         const size = 15 + Math.round(ratio * 11)
         const active = selected === tag.name
+        // 链子与 key 用标签原名（那才是路由参数），只有纸上的字走「连载 · 名字」
+        const label = tagLabel(tag.name)
         return (
           <SmartLink
             key={tag.name}
@@ -1087,7 +1089,7 @@ function TagCloudStickers({ tagOptions = [], limit = 30, selected }) {
             } ${tag.count > max * 0.7 ? 'j-pill-yellow' : ''}`}
             style={{ fontSize: `${size}px` }}
           >
-            {active ? <RedCircle label={tag.name} /> : tag.name}
+            {active ? <RedCircle label={label} /> : label}
             {tag.count && (
               <span className='j-stamp j-soft ml-1.5 text-[12px]'>
                 · {tag.count}

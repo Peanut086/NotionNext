@@ -4,6 +4,7 @@ import { render } from '@testing-library/react'
 import { renderToStaticMarkup } from 'react-dom/server.node'
 import {
   LayoutArchive,
+  LayoutIndex,
   LayoutSlug,
   seriesGroups,
   seriesOf,
@@ -141,6 +142,22 @@ describe('连载语法：判据', () => {
     expect(tagLabel('连载:手账入门')).toBe('连载 · 手账入门')
     expect(tagLabel('普通标签')).toBe('普通标签')
     expect(tagLabel(undefined)).toBe(undefined)
+  })
+
+  test('首页贴纸标签云也念「连载 · 名字」，链子仍指原标签', () => {
+    const html = renderToStaticMarkup(
+      <LayoutIndex
+        posts={[post('a-2024', '2024-01-01', ['连载:手账入门'])]}
+        tagOptions={[
+          { name: '连载:手账入门', count: 3 },
+          { name: '普通标签', count: 1 }
+        ]}
+      />
+    )
+    expect(html).toMatch(/连载 · 手账入门/)
+    // 云里不许再直接印裸前缀：那是 Notion 的字段名，不是给人念的
+    expect(html).not.toMatch(/连载:手账入门/)
+    expect(html).toMatch(/href="\/tag\/%E8%BF%9E%E8%BD%BD%3A/)
   })
 
   test('话数按发表日升序，与页码同一把尺', () => {
