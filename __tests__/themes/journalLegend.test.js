@@ -162,6 +162,13 @@ describe('journal legend page', () => {
     expect(html).toMatch(/列表拿不到段落颜色/)
   })
 
+  test('points at the series books directory, not only each book', () => {
+    // /series/[连载名] 与 /series 是两枚不同的回程；只写前者会漏掉 2026-10-13 新增的总目录
+    const html = legend(FIXTURE)
+    expect(html).toContain('连载册目录 →')
+    expect(html).toContain('进去 /series 是一辑一行的总目录')
+  })
+
   test('states the notebook’s own numbers from real fields', () => {
     const html = legend(FIXTURE)
     expect(html).toContain('纸的张数')
