@@ -258,6 +258,15 @@ J1 三条件套的第三件：「基于已有进度的**主动**继续阅读入�
 
 **顺手量到的一条既有缺陷（不是本件引入，登记）**：dev 下每个页面挂载都抛 `Hydration failed…`，组件栈指向 `components/ExternalPlugins.js:48`。三条反证确认与本件无关：① 首页（不渲染 `ReadMark`）同样红；② 把 `ReadMark` 逐字符退回 HEAD 写法仍红；③ 栈里没有任何 `themes/journal` 帧。根因在共享层的 `<script>` 注入（`Expected server HTML to contain a matching <script> in <div>`），**未修**——它属 P 系列「已复现关键缺口」的候选，不该塞进 J1 顺手改。
 
+**线上复验（2026-10-19，`e98c2e20` 构建完成后，无头 Chrome 打 `http://43.228.76.114:3000`）**：部署前线上停在 `1f0494c1`，三枚标记 `j-toc-fab` / `j-toc-drawer` / `j-resume` 全 0——**先取基线再验**，所以下面的正数是真实增量。换版后：
+
+- 入口在场「上次读到 62% →」，点击区 `134.4 × 44.7`、抬头行高 `34.7`（与本地逐像素一致）、不嵌在 `<a>` 里；点击后 62% 期望 `1633`、实测 `1633`（delta 0）
+- 移动端目录：桌面 1280 `display:none`、390 是 `flex` 且 `54.7 × 54.7` 落在左下 14.7px；键盘 Enter 开抽屉，`role=dialog`、6 枚 `.j-tab` 共用一个 `.j-tabs`、`max-height 468px`（60vh）、便条底 `rgb(255,249,196)`、硬阴影 `4px 4px 0`、ESC 收起
+- 夜间 `rgb(92,92,92) → rgb(185,176,163)`、纸底 `rgb(42,38,34)`；打印只有 `.j-pencil` 那条隐藏、`.j-resume` 自己没有打印规则
+- 回归：文章页 12 张 `.j-slip`、7 个 `.notion-text`、连载胶囊「连载 · Android开发」1 枚且裸前缀 0；`/series` 仍是「2 辑 · 共 6 话」，`<title>` 正常
+
+**顺带修好的一条运维断点（不是代码问题）**：`3fb45c35..b5b5880e` 五笔推送到达 GitHub 但**零 workflow run**——仓库级 Actions 开关被关（各 workflow 文件仍显示 `active`，那只代表文件启用）。开关恢复后 `main.yml` 只有 `on: push`、没有 `workflow_dispatch`，已推 commit 不会补跑，所以补了一笔空提交 `e98c2e20` 触发；构建 28 分钟完成，服务器 HEAD 走到 `e98c2e20`、容器换版。**以后判「部署没生效」先查 `created>` 计数，别只看 `git push` 成功**。
+
 **实现落点**：`themes/journal/index.js` 的 `resumeTo()` + `ReadMark`（`last` 那一支返回 `<button>`，其余分支不变）；`style.js` 3j 节末尾的 `.j-resume`。**不动 `reading.js`**：跳转只读 pct、不写它，读写与跳转不必同住。护栏 `__tests__/themes/journalContinueReading.test.js`（含「读完态不出现入口」「无进度不渲染」「不许自动跳转」三条关键断言，外加 44px 触控与「负 margin 不换行高」两条护栏）。
 
 ---
