@@ -187,10 +187,13 @@ describe('journal reader bookmark layer', () => {
       themeSource.indexOf('const LEGEND_SYNTAX ='),
       themeSource.indexOf('/** 图例页')
     )
-    expect(syntax).toMatch(/name: '书签 · 读完的勾'/)
+    expect(syntax).toMatch(/name: '书签 · 读完的勾 · 接着读'/)
     expect(syntax).toMatch(/不上传/)
     // 诚实原则：看不见不是坏了
     expect(syntax).toMatch(/没读过就没有痕/)
+    // 入口这一件事也要写在图例上：它点了才跳，不自动跳
+    expect(syntax).toMatch(/上次读到 .*→.*可以点/)
+    expect(syntax).toMatch(/不自动跳/)
   })
 
   test('the pencil is the fourth colour and not a new token', () => {

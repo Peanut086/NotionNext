@@ -1146,6 +1146,23 @@ export const Style = () => {
       #theme-journal .j-pencil svg {
         flex: none;
       }
+      /* J1 第三件：文章页抬头那枚「上次读到 N%」是入口，不是陈述。
+         静止时保持铅笔灰——颜色讲的是「这是读者的痕」，不该改口成蓝色链接；
+         可点性由文案里的 → + 指针 + 焦点虚线框三件事共同承担，不靠单一通道。
+         外扩的内边距撑到 44px 触控下限，负 margin 把它占回原处：
+         抬头那一行的高度归邮戳管，入口不许把行顶高 */
+      #theme-journal .j-resume {
+        appearance: none;
+        border: 0;
+        padding: 10px 8px;
+        margin: -10px -8px;
+        cursor: pointer;
+        background: transparent;
+        color: var(--ink-soft);
+      }
+      #theme-journal .j-resume:hover {
+        color: var(--ink);
+      }
 
       /* ---------- 3k. 连载册：一条线印成一辑 ---------- *
          竖线是这条「线」本身的图形，走淡墨（--ink-soft），不新增第四色；

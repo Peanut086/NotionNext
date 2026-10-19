@@ -593,6 +593,20 @@ const CheckDoodle = () => (
  * 读者留下的铅笔痕。判据全在 reading.js，这里只负责画：
  * 没到门槛写「读到 N%」，到了只留一枚勾——同一件事不给两种说法。
  */
+const resumeTo = pct => {
+  /* 与 reading.js 记录用的 (top / height) * 100 互为反函数：同一个 height 定义，
+     否则「上次读到 62%」跳过去的位置和当初记下的不是同一处 */
+  const height = document.documentElement.scrollHeight - window.innerHeight
+  if (height <= 0) return
+  /* 无障碍红线里「reduce 关掉全部位移」对 JS 滚动同样成立——这一枚章是本主题
+     第一处会动的东西，动法不能自己定例外 */
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  window.scrollTo({
+    top: (pct / 100) * height,
+    behavior: reduce ? 'auto' : 'smooth'
+  })
+}
+
 const ReadMark = ({ pct = 0, last = false }) => {
   if (!pct) return null
   if (isRead(pct) && j('JOURNAL_READ_DONE_CHECK', true)) {
@@ -603,10 +617,21 @@ const ReadMark = ({ pct = 0, last = false }) => {
       </span>
     )
   }
+  /* 只有文章页抬头那枚是入口：纸条整块已经是 <a>，往里塞第二个行动点是非法 HTML，
+     所以列表与归档仍是纯陈述（见「书签」节的互斥规矩） */
+  if (last) {
+    return (
+      <button
+        type='button'
+        className='j-pencil j-stamp j-resume whitespace-nowrap'
+        onClick={() => resumeTo(pct)}
+      >
+        {`上次读到 ${pct}% →`}
+      </button>
+    )
+  }
   return (
-    <span className='j-pencil j-stamp whitespace-nowrap'>
-      {`${last ? '上次' : ''}读到 ${pct}%`}
-    </span>
+    <span className='j-pencil j-stamp whitespace-nowrap'>{`读到 ${pct}%`}</span>
   )
 }
 
@@ -2400,9 +2425,10 @@ const LEGEND_SYNTAX = [
     today: '文章页底部，hr 之后'
   },
   {
-    name: '书签 · 读完的勾',
+    name: '书签 · 读完的勾 · 接着读',
     how: '不是 Notion 字段：是你在本站的滚动进度，只写在你自己浏览器的本地存储里，不上传',
-    today: '本机决定。没读过就没有痕，看不见也不说明这篇文章有问题'
+    today:
+      '本机决定。没读过就没有痕，看不见也不说明这篇文章有问题；读到一半时文章页抬头那枚「上次读到 N% →」可以点，点了才跳回上次的位置（不自动跳）'
   },
   {
     name: '一天一摊',
