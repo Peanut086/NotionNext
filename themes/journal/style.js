@@ -526,6 +526,88 @@ export const Style = () => {
         opacity: 0.85;
       }
 
+      /* ---------- 3c-2. 移动端目录：悬浮圆形按钮 + 抽屉（lg: 以下） ---------- */
+      /* 沿用纸色/墨边/歪斜/硬阴影，不新增材质、不新增 token；夜间随纸一起暗 */
+      #theme-journal .j-toc-fab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        padding: 0;
+        position: fixed;
+        left: 16px;
+        bottom: 16px;
+        z-index: 40;
+        background: var(--slip);
+        border: 2px solid var(--ink);
+        border-radius: 50%;
+        box-shadow: var(--shadow);
+        transform: rotate(-3deg);
+        font-family: var(--font-hand);
+        font-size: 22px;
+        line-height: 1;
+        color: var(--ink);
+        cursor: pointer;
+        transition:
+          transform 140ms ease,
+          box-shadow 140ms ease;
+      }
+      #theme-journal .j-toc-fab:hover {
+        transform: rotate(-3deg) translate(-1px, -1px);
+        box-shadow: var(--shadow-hover);
+      }
+      #theme-journal .j-toc-fab:focus-visible {
+        outline: 2px dashed var(--blue);
+        outline-offset: 3px;
+      }
+      /* 抽屉：直接复用 .j-note 那张便条（材质、歪斜、硬阴影、夜间都跟它走），
+         这里只补定位与限高，不重写一份材质 */
+      #theme-journal .j-toc-drawer {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        max-height: 60vh;
+        overflow-y: auto;
+        padding: 16px 18px 18px;
+        z-index: 41;
+      }
+      #theme-journal .j-toc-drawer:focus-visible {
+        outline: 2px dashed var(--blue);
+        outline-offset: 3px;
+      }
+      #theme-journal .j-toc-close {
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        font-family: var(--font-hand);
+        font-size: 26px;
+        line-height: 1;
+        color: var(--ink);
+        cursor: pointer;
+      }
+      #theme-journal .j-toc-close:focus-visible {
+        outline: 2px dashed var(--blue);
+        outline-offset: 2px;
+      }
+      /* 抽屉里的索引贴沿用 .j-tab 全套规则，这里只覆盖容器宽度，不写第二套贴面 */
+      #theme-journal .j-toc-drawer .j-tabs {
+        margin-top: 8px;
+      }
+      /* 桌面端（与目录的 lg: 同一把尺，960px）不出现按钮与抽屉 */
+      @media (min-width: 960px) {
+        #theme-journal .j-toc-fab,
+        #theme-journal .j-toc-drawer {
+          display: none;
+        }
+      }
+
       /* ---------- 3d. 一天一摊：日期是纸，不是字段 ---------- */
       #theme-journal .j-day {
         position: relative;
@@ -1675,6 +1757,8 @@ export const Style = () => {
         #theme-journal footer.j-shell,
         #theme-journal .j-progress,
         #theme-journal .j-tabs,
+        #theme-journal .j-toc-fab,
+        #theme-journal .j-toc-drawer,
         #theme-journal .j-share,
         #theme-journal .j-comments,
         #theme-journal .j-around,

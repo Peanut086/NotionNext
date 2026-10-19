@@ -90,6 +90,9 @@ const CONFIG = {
   JOURNAL_SHOW_TOC: true,
   JOURNAL_SHOW_READING_PROGRESS: true,
   JOURNAL_TOC_TITLE: '这一页的目录',
+  // 移动端目录抽屉（规格见 MASTER「移动端目录：悬浮圆形按钮 + 抽屉」节）
+  JOURNAL_TOC_LABEL: '目',
+  JOURNAL_TOC_CLOSE: '收起目录',
   // OG 卡接线（B 案：主题内第二枚 og:image，规格见 MASTER「接线决定」节）
   JOURNAL_OG_CARD: true,
   // 分享卡三型（横卡 / 故事卡 / 剪报卡，规格见 MASTER「分享卡三型」节）

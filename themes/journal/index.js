@@ -1342,6 +1342,7 @@ function LayoutSearch(props) {
 
 function ArticleToc({ post }) {
   const [active, setActive] = useState('')
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     if (!isBrowser || !post?.toc?.length) return
@@ -1361,35 +1362,101 @@ function ArticleToc({ post }) {
     return () => observer.disconnect()
   }, [post?.toc])
 
+  // ESC 与「点抽屉外」都收起：不铺遮罩层（那是一层新材质），只监听 document
+  useEffect(() => {
+    if (!open || !isBrowser) return
+    const onKey = e => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    const onDown = e => {
+      const t = e.target
+      if (!t || typeof t.closest !== 'function') return
+      if (t.closest('#j-toc-drawer') || t.closest('.j-toc-fab')) return
+      setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onDown)
+    }
+  }, [open])
+
   if (!post?.toc?.length || !j('JOURNAL_SHOW_TOC', true)) return null
 
+  const tocTitle = j('JOURNAL_TOC_TITLE', '这一页的目录')
+  const tocLabel = j('JOURNAL_TOC_LABEL', '目')
+
   return (
-    <aside className='sticky top-8 hidden max-h-[calc(100vh-4rem)] overflow-y-auto py-12 pl-3 pr-2 lg:block'>
-      <div className='j-stamp j-red pl-4'>
-        {j('JOURNAL_TOC_TITLE', '这一页的目录')}
-      </div>
-      <nav
-        className='j-tabs mt-4'
-        aria-label={j('JOURNAL_TOC_TITLE', '这一页的目录')}
+    <>
+      {/* 桌面端侧伸索引贴：lg:block 不变 */}
+      <aside className='sticky top-8 hidden max-h-[calc(100vh-4rem)] overflow-y-auto py-12 pl-3 pr-2 lg:block'>
+        <div className='j-stamp j-red pl-4'>{tocTitle}</div>
+        <TocTabs toc={post.toc} active={active} tocTitle={tocTitle} />
+      </aside>
+
+      {/* 移动端：左下角悬浮圆形按钮 + 抽屉。lg: 以下才出现 */}
+      <button
+        type='button'
+        className='j-toc-fab'
+        aria-expanded={open}
+        aria-controls={open ? 'j-toc-drawer' : undefined}
+        aria-label={tocTitle}
+        onClick={() => setOpen(o => !o)}
       >
-        {post.toc.map(item => {
-          const id = uuidToId(item.id)
-          const current = id === active
-          return (
-            <a
-              key={id}
-              href={`#${id}`}
-              className={`j-tab ${current ? 'j-tab-current' : ''}`}
-              style={{ '--j-ind': `${(item.indentLevel || 0) * 12}px` }}
-              aria-current={current ? 'location' : undefined}
-            >
-              <span className='j-tab-text'>{item.text}</span>
-              {current && <HandRule red className='j-tab-slash' />}
-            </a>
-          )
-        })}
-      </nav>
-    </aside>
+        {tocLabel}
+      </button>
+      {open && (
+        <div
+          id='j-toc-drawer'
+          className='j-note j-toc-drawer'
+          role='dialog'
+          aria-modal='false'
+          aria-label={tocTitle}
+        >
+          <div className='j-stamp j-red pl-1'>{tocTitle}</div>
+          <button
+            type='button'
+            className='j-toc-close'
+            aria-label={j('JOURNAL_TOC_CLOSE', '收起目录')}
+            onClick={() => setOpen(false)}
+          >
+            ×
+          </button>
+          <TocTabs
+            toc={post.toc}
+            active={active}
+            tocTitle={tocTitle}
+            onNavigate={() => setOpen(false)}
+          />
+        </div>
+      )}
+    </>
+  )
+}
+
+/** 目录的索引贴列表，桌面 aside 与移动抽屉共用一份，不写第二套贴面规则 */
+function TocTabs({ toc, active, tocTitle, onNavigate }) {
+  return (
+    <nav className='j-tabs mt-4' aria-label={tocTitle}>
+      {toc.map(item => {
+        const id = uuidToId(item.id)
+        const current = id === active
+        return (
+          <a
+            key={id}
+            href={`#${id}`}
+            className={`j-tab ${current ? 'j-tab-current' : ''}`}
+            style={{ '--j-ind': `${(item.indentLevel || 0) * 12}px` }}
+            aria-current={current ? 'location' : undefined}
+            onClick={onNavigate}
+          >
+            <span className='j-tab-text'>{item.text}</span>
+            {current && <HandRule red className='j-tab-slash' />}
+          </a>
+        )
+      })}
+    </nav>
   )
 }
 
@@ -3002,6 +3069,8 @@ export {
   LayoutSlug,
   LayoutTagIndex,
   LayoutYearbook,
+  // 移动端目录抽屉的判据：导出只为让护栏能直接渲染它，站内没有第二个调用方
+  ArticleToc,
   CONFIG as THEME_CONFIG,
   // 「往年的今天」「连载」「年刊」的判据：导出只为让护栏能直接问它们，站内没有第二个调用方
   echoYears,
