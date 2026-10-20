@@ -72,3 +72,12 @@
 - **四条链接线上实测全 200**：`/article/adb-install`、`/article/voice_file`、`/article/gradle_timeout`、`/article/installApkasSys`
 - 主题代码零改动，未提交任何代码变更
 - **未验证**：页面仍是 Draft，站点取数只认 `Published`，所以 `/guide/android-as-server` 现在线上是 404。**「能渲染」是按路由代码推得的，不是实测**——要等发布后才有线上地址可验
+
+## 发布与线上观感（2026-10-20）
+
+- 状态改为 `Published` 后先探到 404，**等了约 10 分钟**再探才变 200——不是建错了，是 prod 数据缓存 10 分钟没过期（`lib/cache/memory_cache.js:4`）
+- **URL 形态与草稿里的猜测不同**：这一页实际落在 **`/guide/android-as-server`**，不带 `article/` 前缀——`/article/guide/android-as-server` 实测 404。同一形态在既有 `Page` 上也成立：`/about` 200、`/article/about` 404。所以草稿原先写「四步链接用 `/article/<slug>`」对文章是对的，对 `Page` 型路线页不适用；路线页自己的地址就是 `/<slug>`
+- 无头 Chrome 取真实 DOM（1280 与 390 各一次）：`<title>` = 「把旧安卓手机当低功耗服务器用 | JavaScript大王」，H1 正确，四个 H2 与正文段落齐全，四条链接 `href` 均指向 `/article/<slug>` 且线上 200，引用块在位
+- **主题语法照常生效**：邮戳 `10.20` + `2026` + 黄胶囊「Android开发」、左页边索引贴目录（四项）、上/下一篇胶带纸条、页脚「这一页还没画完」
+- 移动端 390：目录退成左下角手写圆钮「目」，`scrollWidth 390 = innerWidth 390` 无横向溢出，四步链接蓝字带波浪下划线
+- **一处探针假象（记下来免得下次误判）**：脚本按 `.notion-h2` / `.notion-bulleted_list_item` 取值时，`h2` 数组里出现了四个标题、`bullets` 为空、`li` 混进了 `numbered`。这是选择器口径的问题（react-notion-x 把 h2 渲染成 `h3` 标签、`li` 被 `numbered` 选择器先命中），截图里「前置知识」三条确实是圆点列表、四步确实是有序列表。**验收以截图为准，不以选择器计数为准**
