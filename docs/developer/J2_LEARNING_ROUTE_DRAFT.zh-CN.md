@@ -75,7 +75,7 @@
 
 ## 发布与线上观感（2026-10-20）
 
-- 状态改为 `Published` 后先探到 404，**等了约 10 分钟**再探才变 200——不是建错了，是 prod 数据缓存 10 分钟没过期（`lib/cache/memory_cache.js:4`）
+- 状态改为 `Published` 后先探到 404，过一会儿再探才变 200——**当时写成「等了约 10 分钟、数据缓存 10 分钟没过期」，这句归因是错的，已订正**。2026-10-20 的受控实验（一次性探针页，每 15 秒探一次）实测 **75.3 秒**变 200；配套的「改已有页标题」实验是 **76 秒**。两个数都落在 `NEXT_REVALIDATE_SECOND`（默认 60 秒）的 ISR 重建窗口量级上。`memory_cache.js:4` 那条「prod 10 分钟」在 Docker 自托管下并**不成立**（那里 `isProd` 为 false，走 120 分钟分支；而运行时 `ENABLE_CACHE` 解析为 false，读缓存整体关闭）。细节与两条可复算的理由见 [CONFIG_PIPELINE](./CONFIG_PIPELINE.zh-CN.md) 第 4.1 节
 - **URL 形态与草稿里的猜测不同**：这一页实际落在 **`/guide/android-as-server`**，不带 `article/` 前缀——`/article/guide/android-as-server` 实测 404。同一形态在既有 `Page` 上也成立：`/about` 200、`/article/about` 404。所以草稿原先写「四步链接用 `/article/<slug>`」对文章是对的，对 `Page` 型路线页不适用；路线页自己的地址就是 `/<slug>`
 - 无头 Chrome 取真实 DOM（1280 与 390 各一次）：`<title>` = 「把旧安卓手机当低功耗服务器用 | JavaScript大王」，H1 正确，四个 H2 与正文段落齐全，四条链接 `href` 均指向 `/article/<slug>` 且线上 200，引用块在位
 - **主题语法照常生效**：邮戳 `10.20` + `2026` + 黄胶囊「Android开发」、左页边索引贴目录（四项）、上/下一篇胶带纸条、页脚「这一页还没画完」
