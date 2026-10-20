@@ -8,9 +8,9 @@ export const PostLock = props => {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(false)
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault()
-    if (validPassword(password)) {
+    if (await validPassword(password)) {
       setError(false)
     } else {
       setError(true)
@@ -60,7 +60,7 @@ export const PostLock = props => {
           {error && (
             <div className='text-sm text-[#ff2a6d] flex items-center gap-2'>
               <i className='fas fa-exclamation-triangle' />
-              密码错误，请重试
+              {locale.COMMON.PASSWORD_ERROR}
             </div>
           )}
 
