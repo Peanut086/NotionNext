@@ -34,6 +34,17 @@ P2 的三个核验点：**sitemap 两份产物**、**各页面收录资格**、*
 - **域名分裂**：sitemap 里所有 URL 是 `http://peanut.icu/...`，而 canonical/og:url 同样是它——该域名 NXDOMAIN（已登记搁置事项）。即这份 sitemap 的 `<loc>` 全部指向无法解析的域名。
 - **`/about` 出现两次**：静态单页同时在默认字段和文章遍历里各生一份，`getUniqueFields` 按 loc 去重（[pages/sitemap.xml.js:135](file:///E:/PnutCode/NotionNext/pages/sitemap.xml.js#L135)）——实测两次 loc 相同但 lastmod 不同，去重键是 loc **且**后者 lastmod 更大才会覆盖，重复 loc 仍会各留一条。23 条里 `/about`、`/archive`、`/category`、`/search`、`/tag`、`/` 都是两份（默认字段 + allPages 遍历各一次，`/about`、`/links` 这类单页的 slug 也在 allPages 里）。
 
+### 2.1 域名根因查清并已修（2026-10-20 复验）
+
+上面「域名分裂」那条的**根因不在代码**，在 Notion 配置中心：
+
+- `blog.config.js:22` 的默认值是 `http://43.228.76.114:3000/`（正确），但 **Notion 配置中心 `CONFIG-TABLE` 有一行 `LINK = http://peanut.icu` 且已启用**，它按「Notion 表 > 环境变量 > blog.config」的顺序覆盖了默认值（`lib/config.js` 的 `siteConfig`）。
+- 修法：把那行的「配置值」改成 `http://43.228.76.114:3000`。**不改代码。**
+- **改完不会立刻生效**：站点数据（含 `NOTION_CONFIG`）缓存在 `global_data_<locale>_<pageId>` 这个**不含版本号的键**上（`lib/db/SiteDataApi.js:60`），所以改配置后 sitemap/canonical 仍读到旧值，实测持续 6 分钟以上未变。让生效的办法是换容器（重新部署）清掉内存缓存。
+- **复验判据**：`curl -s --compressed <host>/sitemap.xml | grep -c peanut.icu` 应为 0，且 `curl` 文章页取 canonical 应为新地址。
+
+**注意这条与「收录资格」是两件事**：域名修好后 sitemap 才可能有效；但 sitemap 里该有什么（缺 `/plog`、`/series`、`/legend`、`/year/*`，含 3 个加密页，6 条重复）**仍全部未改**，属于下一条待办。
+
 ## 三、草稿与加密页的边界
 
 ### 3.1 草稿（非 Published）
