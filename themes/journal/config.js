@@ -52,6 +52,10 @@ const CONFIG = {
   // 连载册 /series/[name]：把一条线印成一辑，规格见 MASTER「连载册」节
   JOURNAL_SERIES_BOOK: true,
   JOURNAL_SERIES_BOOK_LABEL: '连载册',
+  // 学习路线入口：路线页是 type=Page 的内容，归档只拿到 Post，代码判不出它的地址，
+  // 所以路径由内容侧给；留空即整枚入口不出现（规格见 MASTER「学习路线入口」节）
+  JOURNAL_ROUTE_HREF: process.env.NEXT_PUBLIC_JOURNAL_ROUTE_HREF || '',
+  JOURNAL_ROUTE_LABEL: '学习路线',
 
   // 年刊 /year/[year]：把一年印成一册，一月开一页（规格见 MASTER「年刊」节）
   JOURNAL_YEARBOOK: true,

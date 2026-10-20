@@ -298,6 +298,34 @@ describe('连载语法：纸上', () => {
     expect(styleSource).not.toMatch(/--series/)
   })
 
+  describe('学习路线入口', () => {
+    test('默认不出现：没配路径就没有这枚链，也不摆占位', () => {
+      const html = renderToStaticMarkup(<LayoutArchive posts={SERIES_POSTS} />)
+      expect(html).not.toContain('学习路线')
+    })
+
+    test('配了路径才出现，且链到那个路径', () => {
+      setSwitch('JOURNAL_ROUTE_HREF', '/guide/android-as-server')
+      const html = renderToStaticMarkup(<LayoutArchive posts={SERIES_POSTS} />)
+      expect(html).toContain('学习路线 →')
+      expect(html).toContain('href="/guide/android-as-server"')
+    })
+
+    test('路径由配置给，不写死在主题里', () => {
+      const note = block('function SeriesNote', 'function LayoutArchive')
+      expect(note).toMatch(/j\('JOURNAL_ROUTE_HREF', ''\)/)
+      expect(note).not.toMatch(/\/guide\//)
+    })
+
+    test('跟着连载便条走：一辑都没有时整张便条不出，入口也不出', () => {
+      setSwitch('JOURNAL_ROUTE_HREF', '/guide/android-as-server')
+      const html = renderToStaticMarkup(
+        <LayoutArchive posts={[post('plain', '2026-01-01', ['普通标签'])]} />
+      )
+      expect(html).not.toContain('学习路线')
+    })
+  })
+
   test('清单只在归档右栏：首页没有全集', () => {
     const archive = block(
       'function LayoutArchive',

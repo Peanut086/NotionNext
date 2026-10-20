@@ -1935,6 +1935,7 @@ const seriesBooks = (posts = []) =>
 function SeriesNote({ posts = [] }) {
   const series = useMemo(() => seriesGroups(posts), [posts])
   const books = useMemo(() => seriesBooks(posts), [posts])
+  const routeHref = j('JOURNAL_ROUTE_HREF', '')
   if (!series.length) return null
 
   return (
@@ -1944,6 +1945,17 @@ function SeriesNote({ posts = [] }) {
         <div className='mb-3'>
           <SmartLink href='/series' className='j-stamp j-soft whitespace-nowrap'>
             {`${j('JOURNAL_SERIES_BOOK_LABEL', '连载册')}目录 →`}
+          </SmartLink>
+        </div>
+      )}
+      {/* 学习路线：路线页是 Page 型内容，归档拿不到它，所以路径由配置给；留空即不出现 */}
+      {routeHref && (
+        <div className='mb-3'>
+          <SmartLink
+            href={routeHref}
+            className='j-stamp j-soft whitespace-nowrap'
+          >
+            {`${j('JOURNAL_ROUTE_LABEL', '学习路线')} →`}
           </SmartLink>
         </div>
       )}
