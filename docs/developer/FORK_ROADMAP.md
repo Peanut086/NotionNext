@@ -181,7 +181,8 @@ D3 可在维护成本确实阻碍迭代时单独推进，不阻塞其他功能�
 | J1 ③：继续阅读入口 | 已完成（2026-10-19，本批） | 文章页抬头那枚铅笔痕从陈述升级成可点入口（`上次读到 N% →`），点了才跳、跳位是记录器的反函数；读完与无进度都不出入口。护栏 `journalContinueReading.test.js`（10 例） |
 | J1 验收余项 | 已完成线上复验（2026-10-19，`e98c2e20`） | 三件本地实拍 + 线上复验数字回写 [Journal MASTER](../../design-system/journal/MASTER.md)「继续阅读入口」节末「线上复验」段：入口触控 `134.4 × 44.7`、跳转 delta 0、移动目录 `54.7 × 54.7` + 6 枚 `.j-tab`、夜间与打印态逐项过；首页 / 归档无回归。夜间红墨 2.80:1 那笔债按裁决**不在 J1 内修**，单列 |
 | P2：收录资格与 sitemap 核验 | 已完成核验（2026-10-19，`bb3f17b8`） | [INDEX_COVERAGE_AUDIT.zh-CN.md](./INDEX_COVERAGE_AUDIT.zh-CN.md)：两份 sitemap 产物不一致、新路由全未收录、域名分裂、重复 loc；加密页正文不泄漏但标题/摘要/URL 泄漏且被收录 |
-| P2：sitemap 收录资格改造 | 待定策略 | 需先定「哪些路由该进」再改动态版；静态版去留一并裁决 |
+| P2：sitemap 域名 | 已修（2026-10-20） | 根因在 **Notion 配置中心** 的 `LINK = http://peanut.icu`（未注册域名），按「Notion 表 > 环境变量 > blog.config」覆盖了正确默认值，**不是代码问题**。改为 IP 地址并重新部署后复验：sitemap 24 条全指向可达地址、**逐条 200**，canonical / og:url 同步更正。详见 [INDEX_COVERAGE_AUDIT](./INDEX_COVERAGE_AUDIT.zh-CN.md) 第 2.1 节 |
+| P2：sitemap 收录资格改造 | 待定策略 | 需先定「哪些路由该进」再改动态版；静态版去留一并裁决。**域名修好后现在才值得做**：仍缺 `/plog`、`/series`、`/legend`、`/year/*`，含 3 个加密页，6 条重复 loc |
 | J2：学习路线（第一份） | 已发布、线上验收、入口上线（2026-10-20） | [J2_LEARNING_ROUTE_DRAFT.zh-CN.md](./J2_LEARNING_ROUTE_DRAFT.zh-CN.md)：以 `连载:Android开发` 4 篇编成「把旧安卓手机当低功耗服务器用」四步路线，标出哪几条先后由文章写明、哪条是编辑判断。Notion 页面 `3ff8be59-…`（`guide/android-as-server`，`type=Page`），线上 200：无头 Chrome 验到标题、四个小节、四步有序列表与四条 `/article/<slug>` 链接（均 200），主题语法照常、390 无横向溢出。**入口**：`ca670b98` 在归档「连载」便条顶部加「学习路线 →」，路径走配置键 `JOURNAL_ROUTE_HREF`（Notion 配置中心已配），换版后线上实测在位 |
 
 
