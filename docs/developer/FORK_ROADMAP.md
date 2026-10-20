@@ -182,6 +182,7 @@ D3 可在维护成本确实阻碍迭代时单独推进，不阻塞其他功能�
 | J1 验收余项 | 已完成线上复验（2026-10-19，`e98c2e20`） | 三件本地实拍 + 线上复验数字回写 [Journal MASTER](../../design-system/journal/MASTER.md)「继续阅读入口」节末「线上复验」段：入口触控 `134.4 × 44.7`、跳转 delta 0、移动目录 `54.7 × 54.7` + 6 枚 `.j-tab`、夜间与打印态逐项过；首页 / 归档无回归。夜间红墨 2.80:1 那笔债按裁决**不在 J1 内修**，单列 |
 | P2：收录资格与 sitemap 核验 | 已完成核验（2026-10-19，`bb3f17b8`） | [INDEX_COVERAGE_AUDIT.zh-CN.md](./INDEX_COVERAGE_AUDIT.zh-CN.md)：两份 sitemap 产物不一致、新路由全未收录、域名分裂、重复 loc；加密页正文不泄漏但标题/摘要/URL 泄漏且被收录 |
 | P2：sitemap 收录资格改造 | 待定策略 | 需先定「哪些路由该进」再改动态版；静态版去留一并裁决 |
+| J2：学习路线（第一份） | 已编排并写入 Notion Draft（2026-10-20） | [J2_LEARNING_ROUTE_DRAFT.zh-CN.md](./J2_LEARNING_ROUTE_DRAFT.zh-CN.md)：以 `连载:Android开发` 4 篇编成「把旧安卓手机当低功耗服务器用」四步路线，标出哪几条先后由文章写明、哪条是编辑判断。Notion 页面 `3ff8be59-…`（`guide/android-as-server`，Draft，`type=Page`），四链接线上 200。**未发布，故站点侧尚未验证渲染**；入口与呈现方式仍待裁决 |
 
 
 ## 暂不默认进入实施队列
