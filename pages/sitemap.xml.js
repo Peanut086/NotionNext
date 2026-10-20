@@ -4,12 +4,18 @@ import { siteConfig } from '@/lib/config'
 import { fetchGlobalAllData } from '@/lib/db/SiteDataApi'
 import {
   buildSitemapLoc,
+  isIndexablePost,
   normalizeSitemapBaseUrl,
   normalizeSitemapLocale,
-  toSitemapDateString
+  toSitemapDateString,
+  yearbookYears
 } from '@/lib/sitemap-utils'
 import { extractLangId, extractLangPrefix } from '@/lib/utils/pageId'
 import { getServerSideSitemap } from 'next-sitemap'
+
+/** Journal 主题自建路由：都已上线且有真实内容，此前从未接线到 sitemap。
+ *  与静态版共用这一份清单，两份产物不许各写一遍。 */
+const THEME_STATIC_SLUGS = ['plog', 'series', 'legend']
 
 export const getServerSideProps = async ctx => {
   let fields = []
@@ -48,6 +54,15 @@ function generateLocalesSitemap(link, allPages, locale) {
   const normalizedLocale = normalizeSitemapLocale(locale)
   const dateNow = toSitemapDateString(new Date())
 
+  // 收录判据先算一次，年刊年份也只看「会被收录的文章」——
+  // 用全量行算会把导航项的日期当成文章年份，凭空多出 2021–2023 三册
+  const indexable = allPages?.filter(post =>
+    isIndexablePost(post, BLOG.NOTION_PROPERTY_NAME.status_publish)
+  ) ?? []
+
+  // 搜索页不进 sitemap，默认字段中随之去掉
+  const defaultSlugs = ['archive', 'category', 'rss/feed.xml', 'tag']
+
   const defaultFields = [
     {
       loc: buildSitemapLoc({ baseUrl: normalizedLink, locale: normalizedLocale }),
@@ -55,79 +70,48 @@ function generateLocalesSitemap(link, allPages, locale) {
       changefreq: 'daily',
       priority: '0.7'
     },
-    {
+    ...defaultSlugs.map(slug => ({
       loc: buildSitemapLoc({
         baseUrl: normalizedLink,
         locale: normalizedLocale,
-        slug: 'archive'
+        slug
       }),
       lastmod: dateNow,
       changefreq: 'daily',
       priority: '0.7'
-    },
-    {
-      loc: buildSitemapLoc({
-        baseUrl: normalizedLink,
-        locale: normalizedLocale,
-        slug: 'category'
-      }),
-      lastmod: dateNow,
-      changefreq: 'daily',
-      priority: '0.7'
-    },
-    {
-      loc: buildSitemapLoc({
-        baseUrl: normalizedLink,
-        locale: normalizedLocale,
-        slug: 'rss/feed.xml'
-      }),
-      lastmod: dateNow,
-      changefreq: 'daily',
-      priority: '0.7'
-    },
-    {
-      loc: buildSitemapLoc({
-        baseUrl: normalizedLink,
-        locale: normalizedLocale,
-        slug: 'search'
-      }),
-      lastmod: dateNow,
-      changefreq: 'daily',
-      priority: '0.7'
-    },
-    {
-      loc: buildSitemapLoc({
-        baseUrl: normalizedLink,
-        locale: normalizedLocale,
-        slug: 'tag'
-      }),
-      lastmod: dateNow,
-      changefreq: 'daily',
-      priority: '0.7'
-    }
-  ].filter(field => Boolean(field?.loc))
-
-  const postFields =
-    allPages
-      ?.filter(p => p.status === BLOG.NOTION_PROPERTY_NAME.status_publish)
-      // 过滤掉外部链接(http开头)和锚点链接(#开头)
-      ?.filter(p => p.slug && !p.slug.startsWith('http') && !p.slug.startsWith('#'))
-      ?.map(post => {
-        const loc = buildSitemapLoc({
+    })),
+    // 主题自建静态页 + 年刊逐年一页
+    ...[...THEME_STATIC_SLUGS, ...yearbookYears(indexable).map(y => `year/${y}`)].map(
+      slug => ({
+        loc: buildSitemapLoc({
           baseUrl: normalizedLink,
           locale: normalizedLocale,
-          slug: post?.slug
-        })
-        if (!loc) return null
-
-        return {
-          loc,
-          lastmod: toSitemapDateString(post?.publishDay, dateNow),
-          changefreq: 'daily',
-          priority: '0.7'
-        }
+          slug
+        }),
+        lastmod: dateNow,
+        changefreq: 'weekly',
+        priority: '0.7'
       })
-      ?.filter(Boolean) ?? []
+    )
+  ].filter(field => Boolean(field?.loc))
+
+  const postFields = indexable
+    ?.map(post => {
+      const loc = buildSitemapLoc({
+        baseUrl: normalizedLink,
+        locale: normalizedLocale,
+        slug: post?.slug
+      })
+      if (!loc) return null
+
+      return {
+        loc,
+        lastmod: toSitemapDateString(post?.publishDay, dateNow),
+        changefreq: 'daily',
+        priority: '0.7'
+      }
+    })
+    ?.filter(Boolean) ?? []
 
   return defaultFields.concat(postFields)
 }

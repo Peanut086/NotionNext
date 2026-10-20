@@ -24,17 +24,25 @@ describe('generateSitemapXml', () => {
         LINK: 'https://example.com/'
       },
       allPages: [
+        // 本用例只关心外链/锚点 slug 的拼接，补上 status 与 type 是因为
+        // 收录资格判据（lib/sitemap-utils.js 的 isIndexablePost）要求它们
         {
           slug: '/hello-world',
-          publishDay: '2026-02-20'
+          publishDay: '2026-02-20',
+          status: 'Published',
+          type: 'Post'
         },
         {
           slug: 'https://external.com/landing',
-          publishDay: '2026-02-20'
+          publishDay: '2026-02-20',
+          status: 'Published',
+          type: 'Post'
         },
         {
           slug: 'https://example.com/internal/page',
-          publishDay: 'invalid-date'
+          publishDay: 'invalid-date',
+          status: 'Published',
+          type: 'Post'
         }
       ]
     })
