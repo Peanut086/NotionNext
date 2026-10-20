@@ -789,6 +789,8 @@ J2 的路线页是 `type = Page` 的内容（见 [J2_LEARNING_ROUTE_DRAFT](../..
 
 **线上配置（2026-10-20）**：Notion 配置中心 `CONFIG-TABLE` 新增一行 `JOURNAL_ROUTE_HREF = /guide/android-as-server`，启用勾选。**注意那张表的「启用」是 checkbox，而 `getNotionConfig.js:164` 比较的是 `properties['启用'] === 'Yes'`**——`getTextContent` 对勾选值返回 `"Yes"`，所以勾上即生效，但**写成文本 `Yes` 或留空都会静默不生效**。
 
+**线上复验（2026-10-20，`ca670b98` 构建完成后）**：部署前先取基线——归档「连载」便条只有「连载册目录 →」，`routeEntrance` 为空；换版后（buildId `ycYGHciu…` → `OfzfEHhk…`）无头 Chrome 取 `http://43.228.76.114:3000/archive` 的 `.j-note`：`学习路线 →` 在场且 `href="/guide/android-as-server"`，与「连载册目录 →」（`href="/series"`）上下并列，材质同为 `j-stamp j-soft` 铅笔灰小字。截图确认它落在便条顶部、不压任何一条连载标题。
+
 ---
 
 ## 手绘原子清单（D3 的收口面 · 2026-10-13 立，**只到文档，未拆文件**）
